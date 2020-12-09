@@ -56,6 +56,9 @@ fun pretty_env ctxt env =
     val print = apply2 (pretty_term ctxt) 
   in pretty_helper (print o get_trms) env
 end
+
+val no_eta_ctxt = Config.put eta_contract false @{context}
+
 \<close>
 
 setup \<open>term_pat_setup\<close>
@@ -76,6 +79,7 @@ fun pretty_ttups ctxt ts=
 
 (*  F O U  *)
 ML_file \<open>First_Order_Unification.ML\<close>
+
 (*ML_file \<open>first_order_unification_code.ML\<close>*)
 
 (* FOU test cases *)
@@ -95,133 +99,30 @@ ML\<open>
         (pwriteln (pretty_ttups ctxt ts);
          tracing x)
 \<close>
-ML\<open>testCase [(@{term_pat "a"},@{term_pat "a"})] @{context}\<close>
-ML\<open>testCase [(@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"})] @{context}\<close>
-ML\<open>testCase [(@{term_pat "a"},@{term_pat "b"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "a"},@{term_pat "?X"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "?Y"},@{term_pat "?X"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "f a ?X"},@{term_pat "f a b"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "f a"},@{term_pat "g a"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "f ?X"},@{term_pat "f ?Y"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "f ?X"},@{term_pat "g ?Y"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "f (?X::'a) ?Y"},@{term_pat "f ?Y (?X::'a)"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "f (g ?X)"},@{term_pat "f ?Y"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y a"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y ?Y"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "f ?X"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?Y"}),(@{term_pat "?Y"},@{term_pat "a"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "a"},@{term_pat "?Y"}),(@{term_pat "?X"},@{term_pat "?Y"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "a"}),(@{term_pat "?X"},@{term_pat "b"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "P ?X ?X"},@{term_pat "P ?Z (f ?Z)"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "\<lambda>x. f ?X"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "P (\<lambda>a b. Q b a)"},@{term_pat "?X ?Y"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "\<lambda>x y. g x (f (?Y x))"},@{term_pat "\<lambda>u v. g u (f (?Z u))"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?Y"}),(@{term_pat "?Y"},@{term_pat "?f ?X"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "?X::'a \<Rightarrow> ('i \<Rightarrow> 'j)"},@{term_pat "(\<lambda>x. f x) :: 'c \<Rightarrow> 'd"}),(@{term_pat "?X::'h \<Rightarrow> 'a"},@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"})] @{context};\<close>
-ML\<open>testCase [(@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"},@{term_pat "?X::'h \<Rightarrow> ('i \<Rightarrow> 'j)"})] @{context};\<close>
-
-(*  H I N T S  *)
-ML\<open>
-
-\<close>
-
-(* tactics for printing out current goal or subgoals, respectively, from cookbook *)
-ML\<open>
-fun my_print_tac ctxt thm =
-  let val _ = tracingP (pretty_thm ctxt thm)
-  in Seq.single thm end
-fun my_print_tac_prems ctxt thm =
-  let val _ = tracingP (pretty_terms ctxt (map Logic.strip_imp_concl (Thm.prems_of thm)))
-  in Seq.single thm end
-\<close>
-
-named_theorems hints
-
-lemma "Suc 0=1" "Suc 1=2" "Suc 2=3" "Suc 3=4" "Suc 4=5"
-"Suc 5=6" "Suc 6=7" "Suc 7=8" "Suc 8=9" "Suc 9=10" "Suc 10=11" by simp+
-
-
-lemma SUCS [hints]:
-  "X = 0 \<Longrightarrow> Suc X = 1"
-  "X = 1 \<Longrightarrow> Suc X = 2"
-  "X = 2 \<Longrightarrow> Suc X = 3"
-  "X = 3 \<Longrightarrow> Suc X = 4"
-  "X = 4 \<Longrightarrow> Suc X = 5"
-  "X = 5 \<Longrightarrow> Suc X = 6"
-  "X = 6 \<Longrightarrow> Suc X = 7"
-  "X = 7 \<Longrightarrow> Suc X = 8"
-  "X = 8 \<Longrightarrow> Suc X = 9"
-  "X = 9 \<Longrightarrow> Suc X = 10"
-  by simp+
-
-lemma NULL_MINUS [hints]:
-  "X = Y \<Longrightarrow> X - Y = (0::nat)"
-by simp
-
-lemma ADD_COMM [hints]:
-  "X + Y = Y + (X ::nat)"
-by simp
-
-lemma ADD_ZERO_ZERO [hints]:
-  "X = 0 \<Longrightarrow> Y = 0 \<Longrightarrow> X + Y = (0::nat)"
-by simp
-
-lemma MULT_ONE [hints]:
-  "X = 1 \<Longrightarrow> Y = 1 \<Longrightarrow> X * Y = (1::nat)"
-by simp
-
-lemma ZERO_ADD [hints]:
-  "X = (0::nat) \<Longrightarrow> X + Y = Y"
-by simp
-
-lemma ADD_ZERO [hints]:
-  "Y = Z \<Longrightarrow> X = (0::nat) \<Longrightarrow> Y + X = Z"
-by simp
-
-lemma ADD_SUC [hints]:
-  "N = Suc Q \<Longrightarrow> P = Q + M \<Longrightarrow> N + M = Suc P"
-by simp
-
-lemma ID_EQ [hints]:
-  "X = Y \<Longrightarrow> id X = Y"
-by simp
-
-lemma ZERO_ONE_GT [hints]:
-  "X > (1::nat) \<Longrightarrow> X > 0"
-by simp
-
-lemma MULT_1 [hints]:
-  "X = 1 \<Longrightarrow> Y = 1 \<Longrightarrow> X * Y = (1::nat)"
-by simp
-
-ML \<open>val hints = Fou.genHintList @{context};\<close>
-
-ML\<open>
-fun print_envir_and_terms ctxt (t1,t2) =
-  let val sigma = Fou.hint_unify ctxt hints (t1,t2) emptyEnv
-      val [t1',t2'] = [Envir.norm_term sigma t1,Envir.norm_term sigma t2]
-      val _ = pwriteln (pretty_terms ctxt [t1,t2])
-      val _ = "sizes: "^(size_of_term t1 |> string_of_int)^", "^(size_of_term t2 |> string_of_int) |> writeln
-      val _ = pretty_env ctxt (Envir.term_env sigma)
-      val _ = pwriteln (pretty_terms ctxt [t1',t2'])
-      val _ = "sizes: "^(size_of_term t1' |> string_of_int)^", "^(size_of_term t2' |> string_of_int) |> writeln
-  in () end
-\<close>
-
-ML\<open>
-val (t1,t2) = (@{term_pat "r ((id 5) + (2 - Suc (id ?Y)) = Suc 4)::nat"},@{term_pat "(id r) (5 = id (Suc 4))::nat"});
-print_envir_and_terms @{context} (t1,t2);
-\<close>
-
-ML\<open>
-val (t1,t2) = (@{term_pat "1*1 \<le> a * (b::nat)"},@{term_pat "1 \<le> a * (b::nat)"});
-print_envir_and_terms @{context} (t1,t2);
-\<close>
-
-ML\<open>
-val (t1,t2) = (@{term_pat "?a + 0 ::nat"},@{term_pat "?a ::nat"});
-print_envir_and_terms @{context} (t1,t2);\<close>
-
+ML\<open>testCase [(@{term_pat "a"},@{term_pat "a"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "a"},@{term_pat "b"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "a"},@{term_pat "?X"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "?Y"},@{term_pat "?X"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "f a ?X"},@{term_pat "f a b"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "f a"},@{term_pat "g a"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "f ?X"},@{term_pat "f ?Y"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "f ?X"},@{term_pat "g ?Y"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "f (?X::'a) ?Y"},@{term_pat "f ?Y (?X::'a)"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "f (g ?X)"},@{term_pat "f ?Y"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y a"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y ?Y"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "?X"},@{term_pat "f ?X"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?Y"}),(@{term_pat "?Y"},@{term_pat "a"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "a"},@{term_pat "?Y"}),(@{term_pat "?X"},@{term_pat "?Y"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "?X"},@{term_pat "a"}),(@{term_pat "?X"},@{term_pat "b"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "P ?X ?X"},@{term_pat "P ?Z (f ?Z)"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "?X"},@{term_pat "\<lambda>x. f ?X"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "P (\<lambda>a b. Q b a)"},@{term_pat "?X ?Y"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "\<lambda>x y. g x (f (?Y x))"},@{term_pat "\<lambda>u v. g u (f (?Z u))"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?Y"}),(@{term_pat "?Y"},@{term_pat "?f ?X"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "?X::'a \<Rightarrow> ('i \<Rightarrow> 'j)"},@{term_pat "(\<lambda>x. f x) :: 'c \<Rightarrow> 'd"}),(@{term_pat "?X::'h \<Rightarrow> 'a"},@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"},@{term_pat "?X::'h \<Rightarrow> ('i \<Rightarrow> 'j)"})] no_eta_ctxt\<close>
 
 (* implementing rule etc. *)
 ML\<open>
@@ -445,21 +346,6 @@ lemma "(\<forall>x. f x) \<Longrightarrow> f x"
 lemma "a = b \<Longrightarrow> f a = f b"
   by (elim arg_cong)
 
-ML\<open>
-let
-  val ctxt = @{context}
-  val goal = @{prop "True \<and> True"}
-in
-  Goal.prove ctxt [] [] goal
-  (fn _ => my_print_tac ctxt
-    THEN fo_resolve_tac ctxt [impI,conjI] 1
-    THEN my_print_tac ctxt
-    THEN fo_resolve_tac ctxt [TrueI] 2
-    THEN my_print_tac ctxt
-    THEN fo_resolve_tac ctxt [TrueI] 1
-)
-end;
-\<close>
 
 lemma "(\<not>G \<longrightarrow> \<not>F) \<longrightarrow> (F \<longrightarrow> G)"
   apply (rule impI)+
@@ -470,13 +356,173 @@ lemma "(\<not>G \<longrightarrow> \<not>F) \<longrightarrow> (F \<longrightarrow
 
 (* HINTS *)
 thm Nat.mult_le_mono
-                      (* 1 *)
+
 lemma "1\<le>a \<Longrightarrow> 1\<le>b \<Longrightarrow> 1*1 \<le> a * (b::nat)"
   by (rule Nat.mult_le_mono)
 
+lemma x_zero:"X + 0 = (X::nat)"
+  by simp
+
+lemma test1: "X+0=X \<Longrightarrow> X = (X::nat)"
+  ..
+
+lemma "a = a"
+  ..
+
+ML\<open>
+Thm.incr_indexes 2 @{thm test1};
+val t = @{term_pat "2 :: nat"};
+infer_instantiate @{context} [(("x",0),Thm.cterm_of @{context} t)] @{thm DEADID.rel_refl};
+Thm.nprems_of @{thm test1}
+\<close>
 
 
+(*  H I N T S  *)
+ML\<open>
+
+\<close>
+
+(* tactics for printing out current goal or subgoals, respectively, from cookbook *)
+ML\<open>
+fun my_print_tac ctxt thm =
+  let val _ = tracingP (pretty_thm ctxt thm)
+  in Seq.single thm end
+fun my_print_tac_prems ctxt thm =
+  let val _ = tracingP (pretty_terms ctxt (map Logic.strip_imp_concl (Thm.prems_of thm)))
+  in Seq.single thm end
+\<close>
+
+named_theorems hints
+
+lemma [hints]:"Suc 0=1" "Suc 1=2" "Suc 2=3" "Suc 3=4" "Suc 4=5"
+"Suc 5=6" "Suc 6=7" "Suc 7=8" "Suc 8=9" "Suc 9=10" "Suc 10=11" by simp+
 
 
+lemma SUCS :
+  "X = 0 \<Longrightarrow> Suc X = 1"
+  "X = 1 \<Longrightarrow> Suc X = 2"
+  "X = 2 \<Longrightarrow> Suc X = 3"
+  "X = 3 \<Longrightarrow> Suc X = 4"
+  "X = 4 \<Longrightarrow> Suc X = 5"
+  "X = 5 \<Longrightarrow> Suc X = 6"
+  "X = 6 \<Longrightarrow> Suc X = 7"
+  "X = 7 \<Longrightarrow> Suc X = 8"
+  "X = 8 \<Longrightarrow> Suc X = 9"
+  "X = 9 \<Longrightarrow> Suc X = 10"
+  by simp+
+
+lemma NULL_MINUS :
+  "X = Y \<Longrightarrow> X - Y = (0::nat)"
+by simp
+
+lemma ADD_COMM :
+  "X + Y = Y + (X ::nat)"
+by simp
+
+lemma ADD_ZERO_ZERO :
+  "X = 0 \<Longrightarrow> Y = 0 \<Longrightarrow> X + Y = (0::nat)"
+by simp
+
+lemma MULT_ONE [hints]:
+  "X = 1 \<Longrightarrow> Y = 1 \<Longrightarrow> X * Y = (1::nat)"
+by simp
+
+lemma MULT_ONE' :
+  "1 * 1 = (1::nat)"
+by simp
+
+lemma ADD_ZERO :
+  "Y = Z \<Longrightarrow> X = (0::nat) \<Longrightarrow> Y + X = Z"
+by simp
+
+lemma ADD_ZERO' [hints] :
+  "X + 0 = (X::nat)"
+by simp
+
+lemma ZERO_ADD :
+  "X = (0::nat) \<Longrightarrow> X + Y = Y"
+by simp
+
+lemma ADD_SUC :
+  "N = Suc Q \<Longrightarrow> P = Q + M \<Longrightarrow> N + M = Suc P"
+by simp
+
+lemma ID_EQ [hints]:
+  "id X = X"
+by simp
+
+lemma ZERO_ONE_GT :
+  "X > (1::nat) \<Longrightarrow> X > 0"
+by simp
+
+ML \<open>val hints = Fou.gen_hint_list @{context};\<close>
+
+ML\<open>
+fun test_hunif ctxt (t1,t2) =
+  let val _ = pretty_terms ctxt [t1,t2] |> pwriteln
+      val (sigma,thm) = Fou.hint_unify ctxt hints (t1,t2) emptyEnv
+      val (t1',t2') = (Envir.norm_term sigma t1,Envir.norm_term sigma t2)
+      val _ = tracing "Unifying environment:"
+      val _ = pretty_env ctxt (Envir.term_env sigma)
+      val _ = pretty_tyenv ctxt (Envir.type_env sigma)
+      val _ = tracing "Unifying theorem:"
+      val _ = pretty_thm ctxt thm |> pwriteln
+      val _ = tracing "Instantiated terms:"
+      val _ = pwriteln (pretty_terms ctxt [t1',t2'])
+  in () end handle Fou.Unif _ => writeln "Unification failed"
+
+val no_eta_ctxt = Config.put eta_contract false @{context};
+\<close>
+
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "a::nat"},
+   @{term_pat "a::nat"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "(\<lambda>x. f x)::nat\<Rightarrow>nat"},
+   @{term_pat "?g::nat\<Rightarrow>nat"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "1* ?b \<le> 2 * (?x::nat)"},
+   @{term_pat "1 \<le> ?a * (?A::nat)"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "?b + 0 ::nat"},
+   @{term_pat "2      ::nat"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "id ?X ::nat"},
+   @{term_pat "?X     ::nat"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "id ?X ::nat"},
+   @{term_pat "5     ::nat"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "?a + 5       ::nat"},
+   @{term_pat "1 + (?b + 0) ::nat"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "(\<lambda>x. ?f x) (4::nat)"},
+   @{term_pat "g (?a+0::nat)"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "5"},
+   @{term_pat "Suc ?x"});\<close>
+
+(* ging mit rekursiver hint unification *)
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "5"},
+   @{term_pat "Suc (Suc ?x)"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "id 5 ::nat"},
+   @{term_pat "Suc (Suc ?x)"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "r ((id 5) + (2 - Suc (id ?Y)) = Suc 4)::nat"},
+   @{term_pat "(id r) (5 = id (Suc 4))::nat"});\<close>
 
 end
