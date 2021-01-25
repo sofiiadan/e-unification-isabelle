@@ -1,5 +1,5 @@
 theory First_Steps
-  imports Main
+  imports Main "/Users/Gast/Documents/Uni/7.Semester/BA/unification-extensions-for-isabelle/spec_check/src/Spec_Check"
 begin
 
 ML
@@ -72,10 +72,26 @@ fun pretty_ttups ctxt ts=
   let fun pretty_tup (x,y) =
         Pretty.block [Pretty.str "(",pretty_term ctxt x,Pretty.str ", ", pretty_term ctxt y,Pretty.str ")"]
       fun ttups [] = Pretty.str "[]"
-        | ttups [x] = pretty_tup x
+        | ttups [x] = pretty_tup x 
         | ttups (x::xs) = Pretty.block [pretty_tup x, Pretty.str ", ",ttups xs]
   in Pretty.block [Pretty.str "[", ttups ts,Pretty.str "]"] end
 \<close>
+
+
+
+
+lemma drei:"(x::nat) + 0 = x"
+  by simp
+
+ML\<open>
+val sym = @{thm HOL.sym}
+fun flip_thm thm =
+  sym OF [thm];
+val x =  flip_thm @{thm drei}
+\<close>
+
+
+
 
 (*  F O U  *)
 ML_file \<open>First_Order_Unification.ML\<close>
@@ -86,7 +102,9 @@ ML_file \<open>First_Order_Unification.ML\<close>
 ML\<open>
   val emptyEnv = Envir.empty 0
   val fou = Fou.first_order_unify @{context}
+\<close>
 
+ML\<open>
   fun testCase ts ctxt=
     let val env = fold fou ts emptyEnv
     in
@@ -95,9 +113,8 @@ ML\<open>
       pwriteln (pretty_terms @{context} (map (Envir.norm_term env) (flatten_tups ts)));
       writeln " "
     end
-      handle Fou.Unif x =>
-        (pwriteln (pretty_ttups ctxt ts);
-         tracing x)
+      handle Fou.Unif (t1,t2) => let val _ = tracing "Unification failed at terms: " in pretty_terms ctxt [t1,t2] |> pwriteln end
+      | Fou.Occurs_Check t1 =>  let val _ = tracing "Unification failed due to occurs check of variable: " in  pretty_term ctxt t1 |> pwriteln end
 \<close>
 ML\<open>testCase [(@{term_pat "a"},@{term_pat "a"})] no_eta_ctxt\<close>
 ML\<open>testCase [(@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"})] no_eta_ctxt\<close>
@@ -123,6 +140,7 @@ ML\<open>testCase [(@{term_pat "\<lambda>x y. g x (f (?Y x))"},@{term_pat "\<lam
 ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?Y"}),(@{term_pat "?Y"},@{term_pat "?f ?X"})] no_eta_ctxt\<close>
 ML\<open>testCase [(@{term_pat "?X::'a \<Rightarrow> ('i \<Rightarrow> 'j)"},@{term_pat "(\<lambda>x. f x) :: 'c \<Rightarrow> 'd"}),(@{term_pat "?X::'h \<Rightarrow> 'a"},@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"})] no_eta_ctxt\<close>
 ML\<open>testCase [(@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"},@{term_pat "?X::'h \<Rightarrow> ('i \<Rightarrow> 'j)"})] no_eta_ctxt\<close>
+ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?X1"})] no_eta_ctxt\<close>
 
 (* implementing rule etc. *)
 ML\<open>
@@ -202,21 +220,18 @@ fun fo_ematch_tac ctxt rules i goal =
     in bimatch_tac ctxt (map (pair true) rules) i goal end;
 \<close>
 
-
 ML\<open>
 
 val unification = Attrib.setup_config_string @{binding "unification"} (K "higher_order");
 
-fun get_current_unif ctxt flag =
-  if flag <> ~1 then flag else
-    Config.get ctxt unification |> (fn "higher_order" => 0 | "first_order" => 1 | _ => ~1);
+fun get_current_unif ctxt =
+    Config.get ctxt unification |> (fn "first_order" => 1 | _ => 0);
 
 (**)
 fun xrule_meth meths =
-  Scan.lift (Scan.optional (Args.bracks Parse.nat) ~1)
-  -- Scan.lift (Scan.optional (Args.parens Parse.nat) 0)
+  Scan.lift (Scan.optional (Args.parens Parse.nat) 0)
   -- Attrib.thms >>
-    (fn ((flag,n), ths) => fn ctxt => (nth meths (get_current_unif ctxt flag)) ctxt n ths
+    (fn (n, ths) => fn ctxt => (nth meths (get_current_unif ctxt)) ctxt n ths
      handle Subscript => raise Fail "Invalid unification method");
 (**)
 
@@ -267,30 +282,30 @@ end;
 
 (* weiter oben in Method.ML *)
 fun intro ctxt ths = SIMPLE_METHOD' (CHANGED_PROP o REPEAT_ALL_NEW (match_tac ctxt ths));
-fun fo_intro ctxt ths = SIMPLE_METHOD' (CHANGED_PROP o REPEAT_ALL_NEW (fo_match_tac ctxt ths));
+fun intro_fo ctxt ths = SIMPLE_METHOD' (CHANGED_PROP o REPEAT_ALL_NEW (fo_match_tac ctxt ths));
 fun elim ctxt ths = SIMPLE_METHOD' (CHANGED_PROP o REPEAT_ALL_NEW (ematch_tac ctxt ths));
-fun fo_elim ctxt ths = SIMPLE_METHOD' (CHANGED_PROP o REPEAT_ALL_NEW (fo_ematch_tac ctxt ths));
+fun elim_fo ctxt ths = SIMPLE_METHOD' (CHANGED_PROP o REPEAT_ALL_NEW (fo_ematch_tac ctxt ths));
 
-fun intro_elim tacs = 
-  Scan.lift (Scan.optional (Args.bracks Parse.nat) ~1) -- Attrib.thms >>
-    (fn (flag, ths) => fn ctxt => (nth tacs (get_current_unif ctxt flag)) ctxt ths
-     handle Subscript => raise Fail "Invalid unification method");
+fun intro_elim tacs =
+  (Attrib.thms >>
+    (fn ths => fn ctxt => (nth tacs (get_current_unif ctxt)) ctxt ths
+     handle Subscript => raise Fail "Invalid unification method"));
 
 (*********)
 
 val _ = Theory.setup
- (Method.setup \<^binding>\<open>intro\<close> (intro_elim [intro,fo_intro])
+ (Method.setup \<^binding>\<open>intro\<close> (intro_elim [intro,intro_fo])
     "repeatedly apply introduction rules" #>
-  Method.setup \<^binding>\<open>elim\<close> (intro_elim [elim,fo_elim])
+  Method.setup \<^binding>\<open>elim\<close> (intro_elim [elim,elim_fo])
     "repeatedly apply elimination rules" #>
   Method.setup \<^binding>\<open>rule\<close>
-    (Scan.lift (Scan.optional (Args.bracks Parse.nat) ~1) -- Attrib.thms >>
-    (fn (flag,ths) => fn ctxt => (nth [some_rule,some_rule_fo] (get_current_unif ctxt flag)) ctxt ths
+    (Attrib.thms >>
+    (fn ths => fn ctxt => (nth [some_rule,some_rule_fo] (get_current_unif ctxt)) ctxt ths
      handle Subscript => raise Fail "Invalid unification method")) "apply some intro/elim rule" #>
   Method.setup \<^binding>\<open>erule\<close> (xrule_meth [erule,erule_fo]) "apply rule in elimination manner (improper)" #>
   Method.setup \<^binding>\<open>drule\<close> (xrule_meth [drule,drule_fo]) "apply rule in destruct manner (improper)" #>
   Method.setup \<^binding>\<open>frule\<close> (xrule_meth [frule,frule_fo]) "apply rule in forward manner (improper)");
-(*^^^^^^ weg*)
+
 \<close>
 
 (* tests for FOU-tactics *)
@@ -431,7 +446,7 @@ lemma MULT_ONE' :
   "1 * 1 = (1::nat)"
 by simp
 
-lemma ADD_ZERO :
+lemma ADD_ZERO:
   "Y = Z \<Longrightarrow> X = (0::nat) \<Longrightarrow> Y + X = Z"
 by simp
 
@@ -455,12 +470,12 @@ lemma ZERO_ONE_GT :
   "X > (1::nat) \<Longrightarrow> X > 0"
 by simp
 
-ML \<open>val hints = Fou.gen_hint_list @{context};\<close>
+ML \<open>val hints = Fou.gen_hint_list @{context}\<close>
 
 ML\<open>
 fun test_hunif ctxt (t1,t2) =
   let val _ = pretty_terms ctxt [t1,t2] |> pwriteln
-      val (sigma,thm) = Fou.hint_unify ctxt hints (t1,t2) emptyEnv
+      val (sigma,thm) = Fou.first_order_unify_h ctxt (t1,t2) emptyEnv
       val (t1',t2') = (Envir.norm_term sigma t1,Envir.norm_term sigma t2)
       val _ = tracing "Unifying environment:"
       val _ = pretty_env ctxt (Envir.term_env sigma)
@@ -469,10 +484,20 @@ fun test_hunif ctxt (t1,t2) =
       val _ = pretty_thm ctxt thm |> pwriteln
       val _ = tracing "Instantiated terms:"
       val _ = pwriteln (pretty_terms ctxt [t1',t2'])
-  in () end handle Fou.Unif _ => writeln "Unification failed"
+  in () end
+  handle Fou.Unif (tfail1,tfail2) => let val _ = tracing "Unification failed at terms: " in pretty_terms ctxt [tfail1,tfail2] |> pwriteln end
+       | Fou.Occurs_Check tfail1 =>  let val _ = tracing "Unification failed due to occurs check at terms: " in pretty_terms ctxt [tfail1] |> pwriteln end
 
 val no_eta_ctxt = Config.put eta_contract false @{context};
 \<close>
+
+
+ML\<open>
+Attrib.setup_config_bool @{binding "hint_trace"} (K false)
+\<close>
+
+
+declare  [[hint_trace=false]]
 
 ML\<open>
 test_hunif no_eta_ctxt
@@ -484,20 +509,31 @@ test_hunif no_eta_ctxt
    @{term_pat "?g::nat\<Rightarrow>nat"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "1* ?b \<le> 2 * (?x::nat)"},
+  (@{term_pat "1 * ?b \<le> 2 * (?x::nat)"},
    @{term_pat "1 \<le> ?a * (?A::nat)"});\<close>
+
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "?b + 0 ::nat"},
+  (@{term "A a"},
+   @{term "A a"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "2 + 0 ::nat"},
    @{term_pat "2      ::nat"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "id ?X ::nat"},
+  (@{term_pat "id ?X  ::nat"},
    @{term_pat "?X     ::nat"});\<close>
 ML\<open>
+(@{term_pat "id ?X ::nat"},
+   @{term_pat "5     ::nat"});
 test_hunif no_eta_ctxt
   (@{term_pat "id ?X ::nat"},
    @{term_pat "5     ::nat"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "5      ::nat"},
+   @{term_pat "?b + 0 ::nat"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "?a + 5       ::nat"},
@@ -506,23 +542,38 @@ ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "(\<lambda>x. ?f x) (4::nat)"},
    @{term_pat "g (?a+0::nat)"});\<close>
+declare [[ML_exception_trace = true]]
+declare [[show_sorts]]
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "5"},
-   @{term_pat "Suc ?x"});\<close>
+  (@{term "a::'a::{}"},
+   @{term "a::'a::{}"});\<close>
+
 
 (* ging mit rekursiver hint unification *)
+
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "5"},
-   @{term_pat "Suc (Suc ?x)"});\<close>
+  (@{term_pat "?x ::nat"},
+   @{term_pat "Suc (Suc ?x) ::nat"});\<close> 
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "id 5 ::nat"},
-   @{term_pat "Suc (Suc ?x)"});\<close>
+   @{term_pat "Suc (Suc 5)"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "r ((id 5) + (2 - Suc (id ?Y)) = Suc 4)::nat"},
    @{term_pat "(id r) (5 = id (Suc 4))::nat"});\<close>
+
+ML_file \<open>Test.ML\<close>
+
+ML\<open>
+Test.test_h_unif @{context} (Envir.empty 0) (Gen_Term.term_fol (Gen_Term.def_sym_gen (0.0,1.0,1.0,0.0)) 1 2) 
+
+
+
+\<close>
+
+
 
 end
