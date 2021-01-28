@@ -409,11 +409,9 @@ fun my_print_tac_prems ctxt thm =
 
 named_theorems hints
 
-lemma [hints]:"Suc 0=1" "Suc 1=2" "Suc 2=3" "Suc 3=4" "Suc 4=5"
-"Suc 5=6" "Suc 6=7" "Suc 7=8" "Suc 8=9" "Suc 9=10" "Suc 10=11" by simp+
 
 
-lemma SUCS :
+lemma SUCS [hints] :
   "X = 0 \<Longrightarrow> Suc X = 1"
   "X = 1 \<Longrightarrow> Suc X = 2"
   "X = 2 \<Longrightarrow> Suc X = 3"
@@ -434,7 +432,7 @@ lemma ADD_COMM :
   "X + Y = Y + (X ::nat)"
 by simp
 
-lemma ADD_ZERO_ZERO :
+lemma ADD_ZERO_ZERO [hints]:
   "X = 0 \<Longrightarrow> Y = 0 \<Longrightarrow> X + Y = (0::nat)"
 by simp
 
@@ -450,12 +448,12 @@ lemma ADD_ZERO:
   "Y = Z \<Longrightarrow> X = (0::nat) \<Longrightarrow> Y + X = Z"
 by simp
 
-lemma ADD_ZERO' [hints] :
-  "X + 0 = (X::nat)"
+lemma ZERO_ADD  [hints]:
+  "X = (0::nat) \<Longrightarrow> X + Y = Y"
 by simp
 
-lemma ZERO_ADD :
-  "X = (0::nat) \<Longrightarrow> X + Y = Y"
+lemma ADD_ZERO' [hints] :
+  "X + 0 = (X::nat)"
 by simp
 
 lemma ADD_SUC :
@@ -463,7 +461,7 @@ lemma ADD_SUC :
 by simp
 
 lemma ID_EQ [hints]:
-  "id X = X"
+  "X = Y \<Longrightarrow> id X = Y"
 by simp
 
 lemma ZERO_ONE_GT :
@@ -471,6 +469,7 @@ lemma ZERO_ONE_GT :
 by simp
 
 ML \<open>val hints = Fou.gen_hint_list @{context}\<close>
+declare  [[hint_trace=true]]
 
 ML\<open>
 fun test_hunif ctxt (t1,t2) =
@@ -491,18 +490,9 @@ fun test_hunif ctxt (t1,t2) =
 val no_eta_ctxt = Config.put eta_contract false @{context};
 \<close>
 
-
-ML\<open>
-Attrib.setup_config_bool @{binding "hint_trace"} (K false)
-\<close>
-
-
-declare  [[hint_trace=false]]
-
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "a::nat"},
-   @{term_pat "a::nat"});\<close>
+  (@{term_pat "\<lambda>x. ?P x::'a::{}"},@{term_pat "\<lambda>x. t x::'a::{}"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "(\<lambda>x. f x)::nat\<Rightarrow>nat"},
@@ -511,15 +501,18 @@ ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "1 * ?b \<le> 2 * (?x::nat)"},
    @{term_pat "1 \<le> ?a * (?A::nat)"});\<close>
-
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term "A a"},
    @{term "A a"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "2 + 0 ::nat"},
-   @{term_pat "2      ::nat"});\<close>
+  (@{term_pat "b + 0 ::nat"},
+   @{term_pat "b      ::nat"});\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (@{term_pat "Suc ?x ::nat"},
+   @{term_pat "3      ::nat"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "id ?X  ::nat"},
@@ -534,6 +527,7 @@ ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "5      ::nat"},
    @{term_pat "?b + 0 ::nat"});\<close>
+
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "?a + 5       ::nat"},
@@ -549,13 +543,15 @@ test_hunif no_eta_ctxt
   (@{term "a::'a::{}"},
    @{term "a::'a::{}"});\<close>
 
+ML\<open>@{thm Pure.reflexive}\<close>
 
 (* ging mit rekursiver hint unification *)
 
+
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "?x ::nat"},
-   @{term_pat "Suc (Suc ?x) ::nat"});\<close> 
+  (@{term_pat "3 ::nat"},
+   @{term_pat "Suc (Suc ?x) ::nat"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "id 5 ::nat"},
