@@ -57,8 +57,6 @@ fun pretty_env ctxt env =
   in pretty_helper (print o get_trms) env
 end
 
-val no_eta_ctxt = Config.put eta_contract false @{context}
-
 \<close>
 
 setup \<open>term_pat_setup\<close>
@@ -77,21 +75,7 @@ fun pretty_ttups ctxt ts=
   in Pretty.block [Pretty.str "[", ttups ts,Pretty.str "]"] end
 \<close>
 
-
-
-
-lemma drei:"(x::nat) + 0 = x"
-  by simp
-
-ML\<open>
-val sym = @{thm HOL.sym}
-fun flip_thm thm =
-  sym OF [thm];
-val x =  flip_thm @{thm drei}
-\<close>
-
-
-
+ML_file \<open>Log.ML\<close>
 
 (*  F O U  *)
 ML_file \<open>First_Order_Unification.ML\<close>
@@ -99,48 +83,43 @@ ML_file \<open>First_Order_Unification.ML\<close>
 (*ML_file \<open>first_order_unification_code.ML\<close>*)
 
 (* FOU test cases *)
-ML\<open>
-  val emptyEnv = Envir.empty 0
-  val fou = Fou.first_order_unify @{context}
-\<close>
 
 ML\<open>
-  fun testCase ts ctxt=
-    let val env = fold fou ts emptyEnv
-    in
-      pwriteln (pretty_ttups ctxt ts);
-      pretty_envs ctxt env;
-      pwriteln (pretty_terms @{context} (map (Envir.norm_term env) (flatten_tups ts)));
-      writeln " "
-    end
-      handle Fou.Unif (t1,t2) => let val _ = tracing "Unification failed at terms: " in pretty_terms ctxt [t1,t2] |> pwriteln end
-      | Fou.Occurs_Check t1 =>  let val _ = tracing "Unification failed due to occurs check of variable: " in  pretty_term ctxt t1 |> pwriteln end
+val no_eta_ctxt = Config.put eta_contract false @{context}
+fun testCase (ts as (t1,t2)) ctxt=
+  let val (env,thm) = Fou.first_order_unify_thm ctxt ts (Envir.empty 0)
+  in  pretty_envs ctxt env;
+      pwriteln (pretty_thm ctxt thm);
+      pwriteln (pretty_terms ctxt [Envir.norm_term env t1, Envir.norm_term env t2])
+  end
+    handle Fou.Unif (t1,t2) => let val _ = tracing "Unification failed at terms: " in pretty_terms ctxt [t1,t2] |> pwriteln end
+    | Fou.Occurs_Check t1 =>  let val _ = tracing "Unification failed due to occurs check of variable: " in  pretty_term ctxt t1 |> pwriteln end
 \<close>
-ML\<open>testCase [(@{term_pat "a"},@{term_pat "a"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "a"},@{term_pat "b"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "a"},@{term_pat "?X"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "?Y"},@{term_pat "?X"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "f a ?X"},@{term_pat "f a b"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "f a"},@{term_pat "g a"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "f ?X"},@{term_pat "f ?Y"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "f ?X"},@{term_pat "g ?Y"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "f (?X::'a) ?Y"},@{term_pat "f ?Y (?X::'a)"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "f (g ?X)"},@{term_pat "f ?Y"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y a"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y ?Y"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "f ?X"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?Y"}),(@{term_pat "?Y"},@{term_pat "a"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "a"},@{term_pat "?Y"}),(@{term_pat "?X"},@{term_pat "?Y"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "a"}),(@{term_pat "?X"},@{term_pat "b"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "P ?X ?X"},@{term_pat "P ?Z (f ?Z)"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "\<lambda>x. f ?X"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "P (\<lambda>a b. Q b a)"},@{term_pat "?X ?Y"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "\<lambda>x y. g x (f (?Y x))"},@{term_pat "\<lambda>u v. g u (f (?Z u))"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?Y"}),(@{term_pat "?Y"},@{term_pat "?f ?X"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "?X::'a \<Rightarrow> ('i \<Rightarrow> 'j)"},@{term_pat "(\<lambda>x. f x) :: 'c \<Rightarrow> 'd"}),(@{term_pat "?X::'h \<Rightarrow> 'a"},@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"},@{term_pat "?X::'h \<Rightarrow> ('i \<Rightarrow> 'j)"})] no_eta_ctxt\<close>
-ML\<open>testCase [(@{term_pat "?X"},@{term_pat "?X1"})] no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "a"},@{term_pat "a"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "a"},@{term_pat "b"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "a"},@{term_pat "?X"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?Y"},@{term_pat "?X"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "f a ?X"},@{term_pat "f a b"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "f a"},@{term_pat "g a"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "f ?X"},@{term_pat "f ?Y"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "f ?X"},@{term_pat "g ?Y"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "f (?X::'a) ?Y"},@{term_pat "f ?Y (?X::'a)"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "f (g ?X)"},@{term_pat "f ?Y"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y a"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y ?Y"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?X"},@{term_pat "f ?X"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "P ?X ?X"},@{term_pat "P ?Z (f ?Z)"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?X"},@{term_pat "\<lambda>x. f ?X"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "P (\<lambda>a b. Q b a)"},@{term_pat "?X ?Y"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "\<lambda>x. g x ?Z"},@{term_pat "\<lambda>u. ?F u"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?X"},@{term_pat "?Y"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?Y"},@{term_pat "?f ?X"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?X::'a \<Rightarrow> ('i \<Rightarrow> 'j)"},@{term_pat "(\<lambda>x. f x) :: 'c \<Rightarrow> 'd"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?X::'h \<Rightarrow> 'a"},@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"},@{term_pat "?X::'h \<Rightarrow> ('i \<Rightarrow> 'j)"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?X"},@{term_pat "?X1"}) no_eta_ctxt\<close>
+
 
 (* implementing rule etc. *)
 ML\<open>
@@ -384,13 +363,6 @@ lemma test1: "X+0=X \<Longrightarrow> X = (X::nat)"
 lemma "a = a"
   ..
 
-ML\<open>
-Thm.incr_indexes 2 @{thm test1};
-val t = @{term_pat "2 :: nat"};
-infer_instantiate @{context} [(("x",0),Thm.cterm_of @{context} t)] @{thm DEADID.rel_refl};
-Thm.nprems_of @{thm test1}
-\<close>
-
 
 (*  H I N T S  *)
 ML\<open>
@@ -412,48 +384,40 @@ named_theorems hints
 
 
 lemma SUCS [hints] :
-  "X = 0 \<Longrightarrow> Suc X = 1"
-  "X = 1 \<Longrightarrow> Suc X = 2"
-  "X = 2 \<Longrightarrow> Suc X = 3"
-  "X = 3 \<Longrightarrow> Suc X = 4"
-  "X = 4 \<Longrightarrow> Suc X = 5"
-  "X = 5 \<Longrightarrow> Suc X = 6"
-  "X = 6 \<Longrightarrow> Suc X = 7"
-  "X = 7 \<Longrightarrow> Suc X = 8"
-  "X = 8 \<Longrightarrow> Suc X = 9"
-  "X = 9 \<Longrightarrow> Suc X = 10"
-  by simp+
+  "X \<equiv> 0 \<Longrightarrow> Suc X \<equiv> 1"
+  "X \<equiv> 1 \<Longrightarrow> Suc X \<equiv> 2"
+  "X \<equiv> 2 \<Longrightarrow> Suc X \<equiv> 3"
+  "X \<equiv> 3 \<Longrightarrow> Suc X \<equiv> 4"
+  "X \<equiv> 4 \<Longrightarrow> Suc X \<equiv> 5"
+  "X \<equiv> 5 \<Longrightarrow> Suc X \<equiv> 6"
+  "X \<equiv> 6 \<Longrightarrow> Suc X \<equiv> 7"
+  "X \<equiv> 7 \<Longrightarrow> Suc X \<equiv> 8"
+  "X \<equiv> 8 \<Longrightarrow> Suc X \<equiv> 9"
+  "X \<equiv> 9 \<Longrightarrow> Suc X \<equiv> 10"
+by linarith+
 
 lemma NULL_MINUS :
-  "X = Y \<Longrightarrow> X - Y = (0::nat)"
+  "X \<equiv> Y \<Longrightarrow> X - Y \<equiv> (0::nat)"
 by simp
 
 lemma ADD_COMM :
-  "X + Y = Y + (X ::nat)"
-by simp
+  "X \<equiv> Y \<Longrightarrow> X + Y \<equiv> Y + (X ::nat)"
+by linarith
 
 lemma ADD_ZERO_ZERO [hints]:
-  "X = 0 \<Longrightarrow> Y = 0 \<Longrightarrow> X + Y = (0::nat)"
+  "X \<equiv> 0 \<Longrightarrow> Y \<equiv> 0 \<Longrightarrow> X + Y \<equiv> (0::nat)"
 by simp
 
 lemma MULT_ONE [hints]:
-  "X = 1 \<Longrightarrow> Y = 1 \<Longrightarrow> X * Y = (1::nat)"
+  "X \<equiv> 1 \<Longrightarrow> Y \<equiv> 1 \<Longrightarrow> X * Y \<equiv> (1::nat)"
 by simp
 
-lemma MULT_ONE' :
-  "1 * 1 = (1::nat)"
+lemma ADD_ZERO [hints]:
+  "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> Y + X \<equiv> Z"
 by simp
 
-lemma ADD_ZERO:
-  "Y = Z \<Longrightarrow> X = (0::nat) \<Longrightarrow> Y + X = Z"
-by simp
-
-lemma ZERO_ADD  [hints]:
-  "X = (0::nat) \<Longrightarrow> X + Y = Y"
-by simp
-
-lemma ADD_ZERO' [hints] :
-  "X + 0 = (X::nat)"
+lemma ZERO_ADD [hints]:
+  "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> X + Y \<equiv> Y"
 by simp
 
 lemma ADD_SUC :
@@ -461,20 +425,16 @@ lemma ADD_SUC :
 by simp
 
 lemma ID_EQ [hints]:
-  "X = Y \<Longrightarrow> id X = Y"
-by simp
+  "X \<equiv> Y \<Longrightarrow> id X \<equiv> Y"
+  by simp
 
-lemma ZERO_ONE_GT :
-  "X > (1::nat) \<Longrightarrow> X > 0"
-by simp
 
 ML \<open>val hints = Fou.gen_hint_list @{context}\<close>
-declare  [[hint_trace=true]]
-
+declare  [[log_level=1000]]
 ML\<open>
 fun test_hunif ctxt (t1,t2) =
   let val _ = pretty_terms ctxt [t1,t2] |> pwriteln
-      val (sigma,thm) = Fou.first_order_unify_h ctxt (t1,t2) emptyEnv
+      val (sigma,thm) = Fou.first_order_unify_h ctxt (t1,t2) (Envir.empty 0)
       val (t1',t2') = (Envir.norm_term sigma t1,Envir.norm_term sigma t2)
       val _ = tracing "Unifying environment:"
       val _ = pretty_env ctxt (Envir.term_env sigma)
@@ -492,7 +452,7 @@ val no_eta_ctxt = Config.put eta_contract false @{context};
 
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term_pat "\<lambda>x. ?P x::'a::{}"},@{term_pat "\<lambda>x. t x::'a::{}"});\<close>
+  (@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "(\<lambda>x. f x)::nat\<Rightarrow>nat"},
@@ -503,8 +463,8 @@ test_hunif no_eta_ctxt
    @{term_pat "1 \<le> ?a * (?A::nat)"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term "A a"},
-   @{term "A a"});\<close>
+  (@{term_pat "a :: 'a \<Rightarrow> 'c"},
+   @{term_pat "a :: 'a \<Rightarrow> 'a"});\<close>
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "b + 0 ::nat"},
@@ -518,8 +478,6 @@ test_hunif no_eta_ctxt
   (@{term_pat "id ?X  ::nat"},
    @{term_pat "?X     ::nat"});\<close>
 ML\<open>
-(@{term_pat "id ?X ::nat"},
-   @{term_pat "5     ::nat"});
 test_hunif no_eta_ctxt
   (@{term_pat "id ?X ::nat"},
    @{term_pat "5     ::nat"});\<close>
@@ -527,7 +485,6 @@ ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "5      ::nat"},
    @{term_pat "?b + 0 ::nat"});\<close>
-
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "?a + 5       ::nat"},
@@ -536,18 +493,26 @@ ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "(\<lambda>x. ?f x) (4::nat)"},
    @{term_pat "g (?a+0::nat)"});\<close>
-declare [[ML_exception_trace = true]]
-declare [[show_sorts]]
 ML\<open>
 test_hunif no_eta_ctxt
-  (@{term "a::'a::{}"},
-   @{term "a::'a::{}"});\<close>
+  (@{term_pat "a+0::nat"},
+   @{term_pat "a::nat"});\<close>
 
-ML\<open>@{thm Pure.reflexive}\<close>
+ML\<open>
+test_hunif no_eta_ctxt
+  (Var(("A",0),TVar(("'a",0),[])),Free("A",TFree("'a",[])))\<close>
+
+ML\<open>test_hunif no_eta_ctxt
+  (Var(("A",0),TVar(("'a",0),[])),Var(("A",0),TFree("'a",[])))\<close>
+
+ML\<open>test_hunif no_eta_ctxt
+  (Var(("A",0),TVar(("'a",0),[])),Var(("A",0),TVar(("'a",0),[])))\<close>
+
+ML\<open>test_hunif no_eta_ctxt
+  (Var(("A",0),TFree("'a",[])),Free("A",TVar(("'a",0),[])))\<close>
+
 
 (* ging mit rekursiver hint unification *)
-
-
 ML\<open>
 test_hunif no_eta_ctxt
   (@{term_pat "3 ::nat"},
@@ -562,14 +527,22 @@ test_hunif no_eta_ctxt
    @{term_pat "(id r) (5 = id (Suc 4))::nat"});\<close>
 
 ML_file \<open>Test.ML\<close>
-
 ML\<open>
-Test.test_h_unif @{context} (Envir.empty 0) (Gen_Term.term_fol (Gen_Term.def_sym_gen (0.0,1.0,1.0,0.0)) 1 2) 
-
-
-
+val (env,thm) = Test.unification_gen @{context} Fou.first_order_unify_h (Envir.empty 0) (Gen_Term.term_fol (Gen_Term.def_sym_gen (1.0,1.0,0.0) 1) 1 10);
+pretty_envs @{context} env;
+pretty_thm @{context} thm |> pwriteln
 \<close>
 
+ML\<open>
+fun replace_vars tgen rand = fn
+  Var _ => tgen rand
+ |f$x =>
+   let val (f',rand1) = replace_vars tgen rand f
+       val (x',rand2) = replace_vars tgen rand1 x
+   in (f' $ x',rand2) end
+ |t => (t,rand);
+replace_vars Test.fun_free_const_free_gen (Random.new ()) @{term_pat "?X + (4::nat) - ?F ?Y"} |> fst |> pretty_term @{context}
+\<close>
 
 
 end
