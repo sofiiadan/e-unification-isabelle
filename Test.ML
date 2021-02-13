@@ -1,27 +1,50 @@
 signature TEST = 
 sig
   type unificationf
-  type unif_test = Proof.context -> unificationf -> Envir.env -> int -> bool
-  type unif_test_gen = Proof.context -> unificationf -> Envir.env -> term Gen_Base.gen -> int -> bool
-  val unification_gen : Proof.context -> unificationf -> Envir.env -> term Gen_Base.gen -> (Envir.env * thm)
-  val sym_h_unif : unif_test_gen
-  val certificate_h_unif : unif_test_gen
-  val certificate_thm_h_unif : unif_test_gen
-  val non_unifiable_const_free : unif_test
-  val unifiable_const_free : unif_test
-  val unifiable_var_term : unif_test_gen
-  val unifiable_vars_replaced : unif_test_gen
-  val fun_free_const_free_gen : term Gen_Term.gen
-  
+  type unif_test
+  type unif_test_gen
+  val unification : Proof.context -> unificationf -> Envir.env -> (term * term) -> (Envir.env * thm)
+
+  val free_gen : int -> term Gen_Term.gen
+  val var_gen : int -> term Gen_Term.gen
+  val free_var_gen : int -> term Gen_Term.gen
+  val free_var_gen_50000_ids : int -> term Gen_Term.gen
+
+  val terms_unify : Proof.context -> unificationf -> Envir.env  -> (term * term) -> bool
+  val test_unif : Proof.context -> unificationf -> (term * term) -> unit
+  val test_not_unif : Proof.context -> unificationf -> (term * term) -> unit
+  val test_list_pos : Proof.context -> (Proof.context -> term * term -> Envir.env -> 'a * 'b) -> string -> (term * term) list -> unit
+  val test_list_neg : Proof.context -> (Proof.context -> term * term -> Envir.env -> 'a * 'b) -> string -> (term * term) list -> unit
+  val test_symmetry : unif_test_gen
+  val test_sigma_unifies : unif_test_gen
+  val test_theorem_correctness : unif_test_gen
+  val test_theorem_correctness_var_term : unif_test_gen
+  val test_non_unif : unif_test_gen
+  val test_non_unif_rev : unif_test_gen
+  val test_identical_unif : unif_test_gen
+  val test_unif_var_term : unif_test_gen
+  val test_unif_vars_replaced : unif_test_gen
+  val test_noop : unif_test_gen
+  val test_occurs_check : unif_test_gen
 end
 
 structure Test : TEST =
 struct
 type unificationf = Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
-type unif_test = Proof.context -> unificationf -> Envir.env -> int -> bool
-type unif_test_gen = Proof.context -> unificationf -> Envir.env -> term Gen_Base.gen -> int -> bool
+type unif_test = Proof.context -> unificationf -> Random.rand -> unit
+type unif_test_gen = Proof.context -> unificationf -> string -> term Gen_Term.gen -> Random.rand -> unit
 
-exception TestFailed of (term * term)
+val free_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (1.0,0.0,0.0) 10) 5
+val var_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (0.0,1.0,0.0) 10) 5
+val free_var_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (0.5,0.5,0.0) 10) 5
+val free_var_gen_50000_ids = Gen_Term.term_fol (Gen_Term.def_sym_gen (0.5,0.5,0.0) 50000) 5
+
+val empty_env = Envir.empty 0
+
+fun replace_vars x = case x of 
+   Var ((x,_),tya) => Free (x,tya)
+  |f$x => (replace_vars f) $ (replace_vars x)
+  |t => t
 
 (* generates a tuple of terms using generator tgen *)
 fun gen_termtup tgen rand =
@@ -29,19 +52,58 @@ fun gen_termtup tgen rand =
       val (t2,rand2) = tgen rand1
   in ((t1,t2),rand2) end
 
-(* generates a list of term tuples of length i using generator tgen *)
-fun gen_termtups i tgen =
-  fold (fn _ => fn (ts,rand) => let val (ttup,new_rand)=gen_termtup tgen rand in (ttup::ts,new_rand) end) (replicate i ()) ([],Random.new())
+fun gen_var_termtup tgen rand =
+  let val (t,rand) = tgen rand
+  in ((Var(("AVAR",1001),TVar(("'atype",1001),[])),t),rand) end
 
-fun gen_terms i tgen =
-  fold (fn _ => fn (ts,rand) => let val (t,new_rand)=tgen rand in (t::ts,new_rand) end) (replicate i ()) ([],Random.new())
+fun gen_termtup_repl_vars tgen rand =
+  let val (t,rand) = tgen rand
+  in ((t,replace_vars t),rand) end
 
-val fun_free_const_free_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (1.0,0.0,1.0) 2) 5 1
+fun gen_identical_termtup tgen rand =
+  let val (t,rand) = tgen rand
+  in ((t,t),rand) end
 
-fun unification_gen ctxt unif envir tgen =
-  let
-    val (t1,rand) = tgen (Random.new ())
-    val (t2,_) = tgen rand
+fun gen_occurs_clash_termtup tgen rand =
+  let val (t,rand) = tgen rand
+      val var = hd (Term.add_vars t [])
+  in ((Var var,t),rand) end
+
+fun print_termtup ctxt (t1,t2) =
+  (pretty_terms ctxt [t1,t2] |> Pretty.string_of)
+
+
+(* checks if two terms unify using unif *)
+fun terms_unify ctxt unif envir (t1,t2) =
+  let val (env,thm) = unif ctxt (t1,t2) envir
+  in true end handle _ => false
+
+(* checks if the environment resulting from unif (t1,t2) unifies t1 and t2 *)
+fun sigma_unifies ctxt unif envir (t1,t2) =
+let val (sigma,_) = unif ctxt (t1,t2) envir in
+   Envir.norm_term sigma t1 = Envir.norm_term sigma t2
+end
+
+fun sigma_unchanged ctxt unif ts =
+let val (sigma,_) = unif ctxt ts empty_env in
+  Envir.is_empty sigma
+end
+
+val terms_from_thm =
+  (fn (Const ("Pure.eq",_) $ t1 $ t2) => (t1,t2)) o Thm.concl_of
+
+(* checks if the theorem resulting from unif (t1,t2) unifies t1 and t2 *)
+fun theorem_correct ctxt unif (t1,t2) =
+let val (sigma,thm) = unif ctxt (t1,t2) empty_env
+    val (lhs,rhs) = terms_from_thm thm in
+  (Envir.norm_term sigma t1,Envir.norm_term sigma t2) = (lhs,rhs)
+  orelse (Envir.norm_term sigma t1,Envir.norm_term sigma t2) = (rhs,lhs)
+end
+
+val term_is_var = fn Var _ => true | _ => false
+
+fun unification ctxt unif envir (t1,t2) =
+ let
     val _ = writeln "Terms: "
     val _ = pwriteln (pretty_term ctxt t1)
     val _ = pwriteln (pretty_term ctxt t2)
@@ -50,79 +112,106 @@ fun unification_gen ctxt unif envir tgen =
     val _ = pretty_thm ctxt thm
   in (env,thm) end
 
-(* checks if two terms unify using unif *)
-fun terms_unify ctxt unif envir (t1,t2) =
-  let val (env,thm) = unif ctxt (t1,t2) envir
-  in true handle _ => false end
+fun test_unif ctxt unif ts =
+  if terms_unify ctxt unif empty_env ts then tracing "Unification succeeded" else warning "Unification failed"
+fun test_not_unif ctxt unif ts=
+  if not (terms_unify ctxt unif empty_env ts) then tracing "Unification failed" else warning "Unification succeeded"
 
-val terms_from_thm =
-  (fn (Const ("Pure.eq",_) $ t1 $ t2) => (t1,t2)) o Thm.concl_of
+fun test_list_pos ctxt unif name l = 
+Spec_Check.check_seq ctxt name
+  (Seq.of_list l)
+  (SOME (print_termtup ctxt))
+  (fn x=>[x])
+  (Property.pred (terms_unify ctxt unif empty_env))
 
-fun replace_vars tgen rand = fn
-  Var _ => tgen rand
- |f$x =>
-   let val (f',rand1) = replace_vars tgen rand f
-       val (x',rand2) = replace_vars tgen rand1 x
-   in (f' $ x',rand2) end
- |t => (t,rand)
+fun test_list_neg ctxt unif name l = 
+Spec_Check.check_seq ctxt name
+  (Seq.of_list l)
+  (SOME (print_termtup ctxt))
+  (fn x=>[x])
+  (Property.pred (not o terms_unify ctxt unif empty_env))
 
-(* checks i tuples of terms generated by tgen for symmetry *)
-fun sym_h_unif ctxt unif envir tgen i =
-  forall
-    (fn (t1,t2) =>
-      if terms_unify ctxt unif envir (t1,t2) = terms_unify ctxt unif envir (t2,t1) then true
-      else raise TestFailed (t1,t2))  
-    (gen_termtups i tgen |> fst)
 
-(* checks i tuples of terms generated by tgen for correctness of sigma *)
-fun certificate_h_unif ctxt unif envir tgen i =
-  forall
-    (fn (t1,t2) =>
-      let val (sigma,_) = unif ctxt (t1,t2) envir in
-        if Envir.norm_term sigma t1 = Envir.norm_term sigma t2 then true
-        else raise TestFailed (t1,t2) end)
-    (gen_termtups i tgen |> fst)
+(**)
+fun test_termtup ctxt name prop gen =
+  Spec_Check.check_gen ctxt name (gen_termtup gen) (SOME (print_termtup ctxt)) prop
 
-(* checks i tuples of terms generated by tgen for correctness of thm *)
-fun certificate_thm_h_unif ctxt unif envir tgen i =
-  forall
-    (fn (t1,t2) =>
-      let val (sigma,thm) = unif ctxt (t1,t2) envir
-          val (lhs,rhs) = terms_from_thm thm in
-        if (Envir.norm_term sigma t1,Envir.norm_term sigma t2) = (lhs,rhs)
-           orelse (Envir.norm_term sigma t1,Envir.norm_term sigma t2) = (rhs,lhs) then true
-        else raise TestFailed (t1,t2) end)
-    (gen_termtups i tgen |> fst)
+fun test_symmetry ctxt unif gen_name gen =
+let val terms_unify' = terms_unify ctxt unif empty_env in
+  test_termtup ctxt
+    ("Symmetry test: "^gen_name)
+    (Property.==> (terms_unify',fn (t1,t2)=> terms_unify' (t2,t1)))
+    gen
+end
 
-(* checks i tuples of function-free consts or frees for non-unifiability *)
-fun non_unifiable_const_free ctxt unif envir i =
-  forall
-    (fn (t1,t2) =>
-      if t1=t2 orelse not (terms_unify ctxt unif envir (t1,t2)) then true
-      else raise TestFailed (t1,t2))
-    (gen_termtups i fun_free_const_free_gen |> fst)
+fun test_sigma_unifies ctxt unif gen_name =
+test_termtup ctxt
+  ("Sigma unifies terms: "^gen_name)
+  (Property.==> (terms_unify ctxt unif empty_env,sigma_unifies ctxt unif empty_env))
 
-(* checks i tuples of function-free consts or frees for unifiability *)
-fun unifiable_const_free ctxt unif envir i =
-  forall
-    (fn (t1,t2) =>
-      if t1=t2 andalso (terms_unify ctxt unif envir (t1,t2)) then true
-      else raise TestFailed (t1,t2))
-    (gen_termtups i fun_free_const_free_gen |> fst)
+fun test_sigma_unifies_repl_vars ctxt unif gen_name gen =
+Spec_Check.check_gen ctxt
+  ("Sigma unifies terms with replaced Vars: "^gen_name)
+  (gen_termtup_repl_vars gen)
+  (SOME (print_termtup ctxt))
+  (Property.==> (terms_unify ctxt unif empty_env,theorem_correct ctxt unif))
 
-fun unifiable_var_term ctxt unif envir tgen i =
-  forall
-    (fn t =>
-      if terms_unify ctxt unif envir (Var(("A",300),TVar(("'a",300),[])),t) then true
-      else raise TestFailed (t,t))
-    (gen_terms i tgen |> fst)
+fun test_theorem_correctness ctxt unif gen_name =
+test_termtup ctxt
+  ("Unifiability theorem correctness: "^gen_name)
+  (Property.==> (terms_unify ctxt unif empty_env,theorem_correct ctxt unif))
 
-fun unifiable_vars_replaced ctxt unif envir tgen i =
-  forall
-    (fn t =>
-      if terms_unify ctxt unif envir (t,replace_vars fun_free_const_free_gen (Random.new ()) t |> fst)
-      then true
-      else raise TestFailed (t,t))
-    (gen_terms i tgen |> fst)
+fun test_theorem_correctness_var_term ctxt unif gen_name gen =
+Spec_Check.check_gen ctxt
+  ("Unifiability of Var with arbitrary term (not containing Var): "^gen_name)
+  (gen_var_termtup gen)
+  (SOME (print_termtup ctxt))
+  (Property.==> (terms_unify ctxt unif empty_env,theorem_correct ctxt unif))
+
+fun test_non_unif ctxt unif gen_name =
+test_termtup ctxt
+  ("Non-unifiability (inequality \<Longrightarrow> non-unifiability): "^gen_name)
+  (Property.==> (<>,not o (terms_unify ctxt unif empty_env)))
+
+fun test_non_unif_rev ctxt unif gen_name =
+test_termtup ctxt
+  ("Non-unifiability (non-unifiability \<Longrightarrow> inequality): "^gen_name)
+  (Property.==> (not o (terms_unify ctxt unif empty_env),<>))
+
+fun test_identical_unif ctxt unif gen_name gen =
+Spec_Check.check_gen ctxt
+  ("Unifiability of identical terms:"^gen_name)
+  (gen_identical_termtup gen)
+  (SOME (print_termtup ctxt))
+  (Property.pred (terms_unify ctxt unif empty_env))
+
+fun test_unif_var_term ctxt unif gen_name gen =
+Spec_Check.check_gen ctxt
+  ("Unifiability of Var with arbitrary term (not containing Var): "^gen_name)
+  (gen_var_termtup gen)
+  (SOME (print_termtup ctxt))
+  (Property.pred (terms_unify ctxt unif empty_env))
+  
+fun test_unif_vars_replaced ctxt unif gen_name gen =
+Spec_Check.check_gen ctxt
+  ("Unifiability of t with t[Free/Var] (where all Vars are replaced by Frees): "^gen_name)
+  (gen_termtup_repl_vars gen)
+  (SOME (print_termtup ctxt))
+  (Property.pred (terms_unify ctxt unif empty_env))
+
+fun test_noop ctxt unif gen_name gen =
+Spec_Check.check_gen ctxt
+  ("Envir unchanged when unifying identical terms: "^gen_name)
+  (gen_identical_termtup gen)
+  (SOME (print_termtup ctxt))
+  (Property.pred (sigma_unchanged ctxt unif))
+
+fun test_occurs_check ctxt unif gen_name gen =
+Spec_Check.check_gen ctxt
+  ("Occurs check stops unification: "^gen_name)
+  (gen_occurs_clash_termtup gen)
+  (SOME (print_termtup ctxt))
+  (Property.==> (not o term_is_var o snd,not o terms_unify ctxt unif empty_env))
+
 
 end

@@ -39,7 +39,7 @@ val reflexive = @{thm Pure.reflexive}
 val combination = Thm.axiom @{theory} "Pure.combination"
 val symmetric = @{thm Pure.symmetric}
 
-fun flip_thm thm = sym OF [thm]
+fun flip_thm thm = symmetric OF [thm]
 
 (* Increment the indexes of only the type variables, from Metis_Reconstruct*)
 fun incr_type_indexes ctxt inc th =
@@ -51,17 +51,23 @@ fun incr_type_indexes ctxt inc th =
   end
 
 (* Rename the type variable names to str *)
-fun rename_type_variables ctxt str th =
+fun rename_type_variables ctxt typ th =
   let
     val tvs = Term.add_tvars (Thm.full_prop_of th) []
-    fun rename_tvar ((a, i), s) = (((a, i), s), Thm.ctyp_of ctxt (TVar ((str, i), s)))
+    fun rename_tvar tv = (tv, Thm.ctyp_of ctxt typ)
   in
     Thm.instantiate (map rename_tvar tvs, []) th
   end
 
 (* instantiates Pure.reflexive with [t/x_0] *)
 fun instantiate_refl ctxt t =
-  infer_instantiate ctxt [(("x",0),Thm.cterm_of ctxt t)] (rename_type_variables @{context} "'hint_type" reflexive)
+  let val renamed_refl = rename_type_variables ctxt (type_of t) reflexive
+      val xVar =  (hd (Term.add_vars (Thm.full_prop_of renamed_refl) []))
+  in
+    infer_instantiate_types ctxt [(xVar,Thm.cterm_of ctxt t)] renamed_refl
+  end
+
+(* TODO renaming better *)
 
 (*map function over bound indices, from pattern.ML*)
 fun mapbnd f =
@@ -160,14 +166,14 @@ fun unif ctxt envir (t1,t2) =
         if Term.is_open t then raise Unif (Var(x,tyx),t)
          else if contains_var x t then raise Occurs_Check (Var(x,tyx)) else
           (case Envir.lookup envir (x,tyx) of
-              NONE    => let val new_env = ty_unify ctxt (tyx,fastype_of t) envir in 
+              NONE    => let val new_env = ty_unify ctxt (fastype_of t,tyx) envir in 
                           (Envir.update ((x,Envir.norm_type (Envir.type_env new_env) tyx),t) new_env,instantiate_refl ctxt t) end
             | SOME t' => if Envir.aeconv (t',t) then (envir,instantiate_refl ctxt t) else unif ctxt envir (t',t))
     | (t,Var(x,tyx)) =>
         if Term.is_open t then raise Unif (t,Var(x,tyx))
          else if contains_var x t then raise Occurs_Check (Var(x,tyx)) else
           (case Envir.lookup envir (x,tyx) of
-              NONE    => let val new_env = ty_unify ctxt (tyx,fastype_of t) envir in 
+              NONE    => let val new_env = ty_unify ctxt (fastype_of t,tyx) envir in 
                           (Envir.update ((x,Envir.norm_type (Envir.type_env new_env) tyx),t) new_env,instantiate_refl ctxt t) end
             | SOME t' => if Envir.aeconv (t',t) then (envir,instantiate_refl ctxt t) else unif ctxt envir (t,t'))
     | (Abs(_,ty1,t1),Abs(_,ty2,t2)) => unif ctxt (ty_unify ctxt (ty1,ty2) envir) (t1,t2)
@@ -276,12 +282,12 @@ let fun unif envir (t1,t2) =
   (case (t1,t2) of
       (Free(x,tyx),Free(y,tyy)) =>
         if x=y then
-          let val new_tenv = ty_unify ctxt (tyx,tyy) envir
+          let val new_tenv = ty_unify ctxt (tyy,tyx) envir
           in (new_tenv,instantiate_refl ctxt (Free(x,Envir.norm_type (Envir.type_env new_tenv) tyx))) end
         else raise Unif (Free(x,tyx),Free(y,tyy))
     | (Const(x,tyx),Const(y,tyy)) =>
         if x=y then
-          let val new_tenv = ty_unify ctxt (tyx,tyy) envir
+          let val new_tenv = ty_unify ctxt (tyy,tyx) envir
           in (new_tenv,instantiate_refl ctxt (Const(x,Envir.norm_type (Envir.type_env new_tenv) tyx))) end
         else raise Unif (Const(x,tyx),Const(y,tyy))
     | (f $ t1,g $ t2) =>
@@ -290,7 +296,7 @@ let fun unif envir (t1,t2) =
         in (envir'', combination OF [infer_instantiate ctxt (envlist ctxt envir'') thm_fg,
                                      infer_instantiate ctxt (envlist ctxt envir'') thm_xy]) end
     | (Var(x,tyx),Var(y,tyy)) =>
-        let val new_env = ty_unify ctxt (tyx,tyy) envir
+        let val new_env = ty_unify ctxt (tyy,tyx) envir
             val new_tenv = Envir.type_env new_env in
          (if x=y then new_env
                  else Envir.update ((x,Envir.norm_type new_tenv tyx),Var(y,Envir.norm_type new_tenv tyy)) new_env,
@@ -299,14 +305,14 @@ let fun unif envir (t1,t2) =
         if Term.is_open t then raise Unif (Var(x,tyx),t)
          else if contains_var x t then raise Occurs_Check (Var(x,tyx)) else
           (case Envir.lookup envir (x,tyx) of
-              NONE    => let val new_env = ty_unify ctxt (tyx,fastype_of t) envir in 
+              NONE    => let val new_env = ty_unify ctxt (fastype_of t,tyx) envir in 
                           (Envir.update ((x,Envir.norm_type (Envir.type_env new_env) tyx),t) new_env,instantiate_refl ctxt t) end
             | SOME t' => if Envir.aeconv (t',t) then (envir,instantiate_refl ctxt t) else unif envir (t',t))
     | (t,Var(x,tyx)) =>
         if Term.is_open t then raise Unif (t,Var(x,tyx))
          else if contains_var x t then raise Occurs_Check (Var(x,tyx)) else
           (case Envir.lookup envir (x,tyx) of
-              NONE    => let val new_env = ty_unify ctxt (tyx,fastype_of t) envir in 
+              NONE    => let val new_env = ty_unify ctxt (fastype_of t,tyx) envir in 
                           (Envir.update ((x,Envir.norm_type (Envir.type_env new_env) tyx),t) new_env,instantiate_refl ctxt t) end
             | SOME t' => if Envir.aeconv (t',t) then (envir,instantiate_refl ctxt t) else unif envir (t,t'))
     | (Abs(_,ty1,t1),Abs(_,ty2,t2)) => unif (ty_unify ctxt (ty1,ty2) envir) (t1,t2)

@@ -1,5 +1,7 @@
 theory First_Steps
-  imports Main "/Users/Gast/Documents/Uni/7.Semester/BA/unification-extensions-for-isabelle/spec_check/src/Spec_Check"
+  imports
+    Main
+    "spec_check/src/Spec_Check"
 begin
 
 ML
@@ -95,7 +97,7 @@ fun testCase (ts as (t1,t2)) ctxt=
     handle Fou.Unif (t1,t2) => let val _ = tracing "Unification failed at terms: " in pretty_terms ctxt [t1,t2] |> pwriteln end
     | Fou.Occurs_Check t1 =>  let val _ = tracing "Unification failed due to occurs check of variable: " in  pretty_term ctxt t1 |> pwriteln end
 \<close>
-ML\<open>testCase (@{term_pat "a"},@{term_pat "a"}) no_eta_ctxt\<close>
+ML\<open>testCase (@{term_pat "?AVAR1001"},@{term_pat "?v1_2.0 ?v0_5"}) no_eta_ctxt\<close>
 ML\<open>testCase (@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"}) no_eta_ctxt\<close>
 ML\<open>testCase (@{term_pat "a"},@{term_pat "b"}) no_eta_ctxt\<close>
 ML\<open>testCase (@{term_pat "a"},@{term_pat "?X"}) no_eta_ctxt\<close>
@@ -284,7 +286,6 @@ val _ = Theory.setup
   Method.setup \<^binding>\<open>erule\<close> (xrule_meth [erule,erule_fo]) "apply rule in elimination manner (improper)" #>
   Method.setup \<^binding>\<open>drule\<close> (xrule_meth [drule,drule_fo]) "apply rule in destruct manner (improper)" #>
   Method.setup \<^binding>\<open>frule\<close> (xrule_meth [frule,frule_fo]) "apply rule in forward manner (improper)");
-
 \<close>
 
 (* tests for FOU-tactics *)
@@ -365,9 +366,6 @@ lemma "a = a"
 
 
 (*  H I N T S  *)
-ML\<open>
-
-\<close>
 
 (* tactics for printing out current goal or subgoals, respectively, from cookbook *)
 ML\<open>
@@ -381,9 +379,7 @@ fun my_print_tac_prems ctxt thm =
 
 named_theorems hints
 
-
-
-lemma SUCS [hints] :
+lemma SUCS :
   "X \<equiv> 0 \<Longrightarrow> Suc X \<equiv> 1"
   "X \<equiv> 1 \<Longrightarrow> Suc X \<equiv> 2"
   "X \<equiv> 2 \<Longrightarrow> Suc X \<equiv> 3"
@@ -404,19 +400,19 @@ lemma ADD_COMM :
   "X \<equiv> Y \<Longrightarrow> X + Y \<equiv> Y + (X ::nat)"
 by linarith
 
-lemma ADD_ZERO_ZERO [hints]:
+lemma ADD_ZERO_ZERO:
   "X \<equiv> 0 \<Longrightarrow> Y \<equiv> 0 \<Longrightarrow> X + Y \<equiv> (0::nat)"
 by simp
 
-lemma MULT_ONE [hints]:
+lemma MULT_ONE :
   "X \<equiv> 1 \<Longrightarrow> Y \<equiv> 1 \<Longrightarrow> X * Y \<equiv> (1::nat)"
 by simp
 
-lemma ADD_ZERO [hints]:
+lemma ADD_ZERO:
   "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> Y + X \<equiv> Z"
 by simp
 
-lemma ZERO_ADD [hints]:
+lemma ZERO_ADD:
   "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> X + Y \<equiv> Y"
 by simp
 
@@ -424,16 +420,19 @@ lemma ADD_SUC :
   "N = Suc Q \<Longrightarrow> P = Q + M \<Longrightarrow> N + M = Suc P"
 by simp
 
-lemma ID_EQ [hints]:
+lemma ID_EQ:
   "X \<equiv> Y \<Longrightarrow> id X \<equiv> Y"
   by simp
 
 
-ML \<open>val hints = Fou.gen_hint_list @{context}\<close>
-declare  [[log_level=1000]]
+ML \<open>val hints = Fou.gen_hint_list @{context}
+\<close>
+declare  [[log_level=400]]
 ML\<open>
-fun test_hunif ctxt (t1,t2) =
-  let val _ = pretty_terms ctxt [t1,t2] |> pwriteln
+val no_eta_ctxt = Config.put eta_contract false @{context};
+fun test_hunif (t1,t2) =
+  let val ctxt = no_eta_ctxt
+      val _ = pretty_terms ctxt [t1,t2] |> pwriteln
       val (sigma,thm) = Fou.first_order_unify_h ctxt (t1,t2) (Envir.empty 0)
       val (t1',t2') = (Envir.norm_term sigma t1,Envir.norm_term sigma t2)
       val _ = tracing "Unifying environment:"
@@ -444,104 +443,98 @@ fun test_hunif ctxt (t1,t2) =
       val _ = tracing "Instantiated terms:"
       val _ = pwriteln (pretty_terms ctxt [t1',t2'])
   in () end
-  handle Fou.Unif (tfail1,tfail2) => let val _ = tracing "Unification failed at terms: " in pretty_terms ctxt [tfail1,tfail2] |> pwriteln end
-       | Fou.Occurs_Check tfail1 =>  let val _ = tracing "Unification failed due to occurs check at terms: " in pretty_terms ctxt [tfail1] |> pwriteln end
-
-val no_eta_ctxt = Config.put eta_contract false @{context};
+  handle Fou.Unif (tfail1,tfail2) => let val _ = tracing "Unification failed at terms: " in pretty_terms no_eta_ctxt [tfail1,tfail2] |> pwriteln end
+       | Fou.Occurs_Check tfail1 =>  let val _ = tracing "Unification failed due to occurs check at terms: " in pretty_terms no_eta_ctxt [tfail1] |> pwriteln end
+       | TUNIFY => let val _ = tracing "Type unification failed" in () end
 \<close>
+ML_file \<open>Test.ML\<close>
 
 ML\<open>
-test_hunif no_eta_ctxt
+Test.unification @{context} Fou.first_order_unify_h (Envir.empty 0) 
   (@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "(\<lambda>x. f x)::nat\<Rightarrow>nat"},
    @{term_pat "?g::nat\<Rightarrow>nat"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "1 * ?b \<le> 2 * (?x::nat)"},
    @{term_pat "1 \<le> ?a * (?A::nat)"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif 
   (@{term_pat "a :: 'a \<Rightarrow> 'c"},
    @{term_pat "a :: 'a \<Rightarrow> 'a"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
-  (@{term_pat "b + 0 ::nat"},
+test_hunif
+  (@{term_pat "b + 0  ::nat"},
    @{term_pat "b      ::nat"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "Suc ?x ::nat"},
    @{term_pat "3      ::nat"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "id ?X  ::nat"},
    @{term_pat "?X     ::nat"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "id ?X ::nat"},
    @{term_pat "5     ::nat"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "5      ::nat"},
    @{term_pat "?b + 0 ::nat"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "?a + 5       ::nat"},
    @{term_pat "1 + (?b + 0) ::nat"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "(\<lambda>x. ?f x) (4::nat)"},
    @{term_pat "g (?a+0::nat)"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "a+0::nat"},
    @{term_pat "a::nat"});\<close>
 
 ML\<open>
-test_hunif no_eta_ctxt
-  (Var(("A",0),TVar(("'a",0),[])),Free("A",TFree("'a",[])))\<close>
+fun rename_type_term_variables' ctxt t th =
+  let
+    val tv = hd (Term.add_tvars (Thm.full_prop_of th) [])
+    val v = hd (Term.add_vars (Thm.full_prop_of th) [])
+    val typ_new = Thm.ctyp_of ctxt (type_of t)
+    val t_new = Thm.cterm_of ctxt t
+  in
+    Thm.instantiate ([(tv,typ_new)], [(v,t_new)]) th
+  end
 
-ML\<open>test_hunif no_eta_ctxt
-  (Var(("A",0),TVar(("'a",0),[])),Var(("A",0),TFree("'a",[])))\<close>
+fun instantiate_refl' ctxt t =
+  rename_type_term_variables' ctxt t @{thm Pure.reflexive};
 
-ML\<open>test_hunif no_eta_ctxt
-  (Var(("A",0),TVar(("'a",0),[])),Var(("A",0),TVar(("'a",0),[])))\<close>
-
-ML\<open>test_hunif no_eta_ctxt
-  (Var(("A",0),TFree("'a",[])),Free("A",TVar(("'a",0),[])))\<close>
-
-
+instantiate_refl' @{context} @{term_pat "5::nat"}
+\<close>
 (* ging mit rekursiver hint unification *)
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "3 ::nat"},
    @{term_pat "Suc (Suc ?x) ::nat"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "id 5 ::nat"},
    @{term_pat "Suc (Suc 5)"});\<close>
 ML\<open>
-test_hunif no_eta_ctxt
+test_hunif
   (@{term_pat "r ((id 5) + (2 - Suc (id ?Y)) = Suc 4)::nat"},
    @{term_pat "(id r) (5 = id (Suc 4))::nat"});\<close>
 
-ML_file \<open>Test.ML\<close>
-ML\<open>
-val (env,thm) = Test.unification_gen @{context} Fou.first_order_unify_h (Envir.empty 0) (Gen_Term.term_fol (Gen_Term.def_sym_gen (1.0,1.0,0.0) 1) 1 10);
-pretty_envs @{context} env;
-pretty_thm @{context} thm |> pwriteln
-\<close>
 
+
+
+(* Problem : consts sind nicht deklariert, term kann nicht zertifiziert werden  *)
 ML\<open>
-fun replace_vars tgen rand = fn
-  Var _ => tgen rand
- |f$x =>
-   let val (f',rand1) = replace_vars tgen rand f
-       val (x',rand2) = replace_vars tgen rand1 x
-   in (f' $ x',rand2) end
- |t => (t,rand);
-replace_vars Test.fun_free_const_free_gen (Random.new ()) @{term_pat "?X + (4::nat) - ?F ?Y"} |> fst |> pretty_term @{context}
+val (t1,t2) = (Var (("v0_2", 0), TVar (("'a",0),[])),Const ("c0_0", TVar(("'a",0),[])));
+val context = fold Variable.declare_term [t1,t2] @{context};
+Test.unification context Fou.first_order_unify_thm (Envir.empty 0) (t1,t2)
 \<close>
 
 
