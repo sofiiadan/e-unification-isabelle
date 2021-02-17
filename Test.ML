@@ -30,6 +30,9 @@ end
 
 structure Test : TEST =
 struct
+val ==> = Property.==>
+infix ==>
+
 type unificationf = Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
 type unif_test = Proof.context -> unificationf -> Random.rand -> unit
 type unif_test_gen = Proof.context -> unificationf -> string -> term Gen_Term.gen -> Random.rand -> unit
@@ -122,14 +125,14 @@ Spec_Check.check_seq ctxt name
   (Seq.of_list l)
   (SOME (print_termtup ctxt))
   (fn x=>[x])
-  (Property.pred (terms_unify ctxt unif empty_env))
+  (Property.property (terms_unify ctxt unif empty_env))
 
 fun test_list_neg ctxt unif name l = 
 Spec_Check.check_seq ctxt name
   (Seq.of_list l)
   (SOME (print_termtup ctxt))
   (fn x=>[x])
-  (Property.pred (not o terms_unify ctxt unif empty_env))
+  (Property.property (not o terms_unify ctxt unif empty_env))
 
 
 (**)
@@ -140,78 +143,78 @@ fun test_symmetry ctxt unif gen_name gen =
 let val terms_unify' = terms_unify ctxt unif empty_env in
   test_termtup ctxt
     ("Symmetry test: "^gen_name)
-    (Property.==> (terms_unify',fn (t1,t2)=> terms_unify' (t2,t1)))
+    (terms_unify' ==> (fn (t1,t2) => terms_unify' (t2,t1)))
     gen
 end
 
 fun test_sigma_unifies ctxt unif gen_name =
 test_termtup ctxt
   ("Sigma unifies terms: "^gen_name)
-  (Property.==> (terms_unify ctxt unif empty_env,sigma_unifies ctxt unif empty_env))
+  (terms_unify ctxt unif empty_env ==> sigma_unifies ctxt unif empty_env)
 
 fun test_sigma_unifies_repl_vars ctxt unif gen_name gen =
 Spec_Check.check_gen ctxt
   ("Sigma unifies terms with replaced Vars: "^gen_name)
   (gen_termtup_repl_vars gen)
   (SOME (print_termtup ctxt))
-  (Property.==> (terms_unify ctxt unif empty_env,theorem_correct ctxt unif))
+  (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
 
 fun test_theorem_correctness ctxt unif gen_name =
 test_termtup ctxt
   ("Unifiability theorem correctness: "^gen_name)
-  (Property.==> (terms_unify ctxt unif empty_env,theorem_correct ctxt unif))
+  (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
 
 fun test_theorem_correctness_var_term ctxt unif gen_name gen =
 Spec_Check.check_gen ctxt
   ("Unifiability of Var with arbitrary term (not containing Var): "^gen_name)
   (gen_var_termtup gen)
   (SOME (print_termtup ctxt))
-  (Property.==> (terms_unify ctxt unif empty_env,theorem_correct ctxt unif))
+  (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
 
 fun test_non_unif ctxt unif gen_name =
 test_termtup ctxt
   ("Non-unifiability (inequality \<Longrightarrow> non-unifiability): "^gen_name)
-  (Property.==> (<>,not o (terms_unify ctxt unif empty_env)))
+  (op <> ==> not o (terms_unify ctxt unif empty_env))
 
 fun test_non_unif_rev ctxt unif gen_name =
 test_termtup ctxt
   ("Non-unifiability (non-unifiability \<Longrightarrow> inequality): "^gen_name)
-  (Property.==> (not o (terms_unify ctxt unif empty_env),<>))
+  (not o (terms_unify ctxt unif empty_env) ==> op <>)
 
 fun test_identical_unif ctxt unif gen_name gen =
 Spec_Check.check_gen ctxt
   ("Unifiability of identical terms:"^gen_name)
   (gen_identical_termtup gen)
   (SOME (print_termtup ctxt))
-  (Property.pred (terms_unify ctxt unif empty_env))
+  (Property.property (terms_unify ctxt unif empty_env))
 
 fun test_unif_var_term ctxt unif gen_name gen =
 Spec_Check.check_gen ctxt
   ("Unifiability of Var with arbitrary term (not containing Var): "^gen_name)
   (gen_var_termtup gen)
   (SOME (print_termtup ctxt))
-  (Property.pred (terms_unify ctxt unif empty_env))
+  (Property.property (terms_unify ctxt unif empty_env))
   
 fun test_unif_vars_replaced ctxt unif gen_name gen =
 Spec_Check.check_gen ctxt
   ("Unifiability of t with t[Free/Var] (where all Vars are replaced by Frees): "^gen_name)
   (gen_termtup_repl_vars gen)
   (SOME (print_termtup ctxt))
-  (Property.pred (terms_unify ctxt unif empty_env))
+  (Property.property (terms_unify ctxt unif empty_env))
 
 fun test_noop ctxt unif gen_name gen =
 Spec_Check.check_gen ctxt
   ("Envir unchanged when unifying identical terms: "^gen_name)
   (gen_identical_termtup gen)
   (SOME (print_termtup ctxt))
-  (Property.pred (sigma_unchanged ctxt unif))
+  (Property.property (sigma_unchanged ctxt unif))
 
 fun test_occurs_check ctxt unif gen_name gen =
 Spec_Check.check_gen ctxt
   ("Occurs check stops unification: "^gen_name)
   (gen_occurs_clash_termtup gen)
   (SOME (print_termtup ctxt))
-  (Property.==> (not o term_is_var o snd,not o terms_unify ctxt unif empty_env))
+  (not o term_is_var o snd ==> not o terms_unify ctxt unif empty_env)
 
 
 end
