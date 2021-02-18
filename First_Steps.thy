@@ -45,11 +45,25 @@ fun pretty_helper aux env =
       |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " := ", s2])
       |> Pretty.enum "," "[" "]"
       |> pwriteln
+
+fun pretty_helper_p aux env =
+  env |> Vartab.dest
+      |> map aux
+      |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " := ", s2])
+      |> Pretty.enum "," "[" "]"
+
 fun pretty_tyenv ctxt tyenv =
   let
     fun get_typs (v, (s, T)) = (TVar (v, s), T)
     val print = apply2 (pretty_typ ctxt)
   in pretty_helper (print o get_typs) tyenv
+end
+
+fun pretty_tyenv_p ctxt tyenv =
+  let
+    fun get_typs (v, (s, T)) = (TVar (v, s), T)
+    val print = apply2 (pretty_typ ctxt)
+  in pretty_helper_p (print o get_typs) tyenv
 end
 
 fun pretty_env ctxt env =
@@ -59,6 +73,12 @@ fun pretty_env ctxt env =
   in pretty_helper (print o get_trms) env
 end
 
+fun pretty_env_p ctxt env =
+  let
+    fun get_trms (v, (T, t)) = (Var (v, T), t)
+    val print = apply2 (pretty_term ctxt) 
+  in pretty_helper_p (print o get_trms) env
+end
 \<close>
 
 setup \<open>term_pat_setup\<close>
@@ -497,22 +517,6 @@ test_hunif
   (@{term_pat "a+0::nat"},
    @{term_pat "a::nat"});\<close>
 
-ML\<open>
-fun rename_type_term_variables' ctxt t th =
-  let
-    val tv = hd (Term.add_tvars (Thm.full_prop_of th) [])
-    val v = hd (Term.add_vars (Thm.full_prop_of th) [])
-    val typ_new = Thm.ctyp_of ctxt (type_of t)
-    val t_new = Thm.cterm_of ctxt t
-  in
-    Thm.instantiate ([(tv,typ_new)], [(v,t_new)]) th
-  end
-
-fun instantiate_refl' ctxt t =
-  rename_type_term_variables' ctxt t @{thm Pure.reflexive};
-
-instantiate_refl' @{context} @{term_pat "5::nat"}
-\<close>
 (* ging mit rekursiver hint unification *)
 ML\<open>
 test_hunif

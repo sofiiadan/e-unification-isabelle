@@ -8,12 +8,7 @@ ML\<open>open Test\<close>
 ML\<open>
 val hint_unif = Fou.first_order_unify_h
 val std_unif = Fou.first_order_unify_thm
-fun test_with test unif gen_name gen n =
-  test @{context} unif (gen_name^", size "^Int.toString n) (gen n)
-fun gen_test_group test unif gen_name gen =
-  map (test_with test unif gen_name gen)
-fun test_group test unif gen_name gen =
-  fold (fn test => fn _ => test (Random.new ())) (gen_test_group test unif gen_name gen [1,2,5,10,50]) ()
+
 
 \<close>
 (* Symmetry *)
@@ -34,6 +29,8 @@ ML\<open>test_group test_occurs_check hint_unif "Var only" var_gen\<close>
 (* type issue; function argument type /= function type *)
 ML\<open>test_group test_unif_var_term std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_unif_var_term hint_unif "Free/Var" free_var_gen\<close>
+
+ML\<open>test_hunif (Free("f",TVar(("'a",0),[]) --> TVar(("'b",0),[])) $ (Free ("x",TVar(("'a",0),[]))), Var(("A",0),TVar(("'a",0),[])))\<close>
 
 (* Unification of identical terms *)
 ML\<open>test_group test_identical_unif std_unif "Free/Var" free_var_gen\<close>
@@ -92,31 +89,43 @@ ML\<open>test_list_neg @{context} hint_unif "Different Free/TFree fails"
 (* Hint tests *)
 
 (* add_zero *)
-ML\<open>test_list_neg @{context} hint_unif "add_zero without hint" [(@{term_pat "5::nat"},@{term_pat "?b + 0 ::nat"})]\<close>
-lemma add_zero [hints]:
-  "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> Y + X \<equiv> Z"
+ML\<open>test_list_neg @{context} hint_unif "add_zero without hint"
+  [(@{term_pat "5::nat"},
+    @{term_pat "?b + 0 ::nat"})]\<close>
+lemma add_zero [hints]: "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> Y + X \<equiv> Z"
   by simp
-ML\<open>test_list_pos @{context} hint_unif "add_zero with hint" [(@{term_pat "5::nat"},@{term_pat "?b + 0 ::nat"})]\<close>
+ML\<open>test_list_pos @{context} hint_unif "add_zero with hint"
+  [(@{term_pat "5::nat"},
+    @{term_pat "?b + 0 ::nat"})]\<close>
 
 (* mult_one *)
-ML\<open>test_not_unif @{context} hint_unif (@{term_pat "1::nat"},@{term_pat "?a * ?b ::nat"})\<close>
-lemma mult_one [hints]:
-  "X \<equiv> 1 \<Longrightarrow> Y \<equiv> 1 \<Longrightarrow> X * Y \<equiv> (1::nat)"
+ML\<open>test_list_neg @{context} hint_unif "mult_one without hint"
+  [(@{term_pat "1::nat"},
+    @{term_pat "?a * ?b ::nat"})]\<close>
+lemma mult_one [hints]: "X \<equiv> 1 \<Longrightarrow> Y \<equiv> 1 \<Longrightarrow> X * Y \<equiv> (1::nat)"
   by simp
-ML\<open>test_unif @{context} hint_unif (@{term_pat "1::nat"},@{term_pat "?a * ?b ::nat"})\<close>
+ML\<open>test_list_pos @{context} hint_unif "mult_one with hint"
+  [(@{term_pat "1::nat"},
+    @{term_pat "?a * ?b ::nat"})]\<close>
 
 (* id_eq *)
-ML\<open>test_not_unif @{context} hint_unif (@{term_pat "5::nat"},@{term_pat "id ?a ::nat"})\<close>
-lemma ID_EQ [hints]:
-  "X \<equiv> Y \<Longrightarrow> id X \<equiv> Y"
+ML\<open>test_list_neg @{context} hint_unif "id_eq without hint"
+  [(@{term_pat "5::nat"},
+    @{term_pat "id ?a ::nat"})]\<close>
+lemma ID_EQ [hints]: "X \<equiv> Y \<Longrightarrow> id X \<equiv> Y"
   by simp
-ML\<open>test_unif @{context} hint_unif (@{term_pat "5::nat"},@{term_pat "id ?a ::nat"})\<close>
+ML\<open>test_list_pos @{context} hint_unif "id_eq with hint"
+  [(@{term_pat "5::nat"},
+    @{term_pat "id ?a ::nat"})]\<close>
 
 (* Suc 2 = 3 *)
-ML\<open>test_not_unif @{context} hint_unif (@{term_pat "Suc ?x ::nat"},@{term_pat "3::nat"})\<close>
-lemma suc2 [hints]:
-  "X \<equiv> 2 \<Longrightarrow> Suc X \<equiv> 3"
+ML\<open>test_list_neg @{context} hint_unif "Suc ?x = 3 without hint"
+  [(@{term_pat "Suc ?x ::nat"},
+    @{term_pat "3::nat"})]\<close>
+lemma suc2 [hints]: "X \<equiv> 2 \<Longrightarrow> Suc X \<equiv> 3"
   by linarith
-ML\<open>test_unif @{context} hint_unif (@{term_pat "Suc ?x ::nat"},@{term_pat "3::nat"})\<close>
+ML\<open>test_list_pos @{context} hint_unif "Suc ?x = 3 with hint"
+  [(@{term_pat "Suc ?x ::nat"},
+   @{term_pat "3::nat"})]\<close>
 
 end
