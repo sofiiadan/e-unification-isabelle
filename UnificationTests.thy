@@ -53,6 +53,10 @@ ML\<open>test_hunif (@{term_pat "?v1_7.0 ?v0_6.0"}, @{term_pat "?v1_1.0 f0_8"})\
 ML\<open>test_group test_sigma_unifies std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_sigma_unifies hint_unif "Free/Var" free_var_gen\<close>
 
+(* Correct Environment is returned *)
+ML\<open>test_group test_sigma_unifies_vars_replaced std_unif "Free/Var" free_var_gen\<close>
+ML\<open>test_group test_sigma_unifies_vars_replaced hint_unif "Free/Var" free_var_gen\<close>
+
 (* multiple identical Vars can lead to failing tests *)
 ML\<open>test_group test_unif_vars_replaced std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_unif_vars_replaced hint_unif "Free/Var" free_var_gen\<close>
