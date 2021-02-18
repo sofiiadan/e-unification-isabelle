@@ -34,9 +34,9 @@ infix ==>
 type unificationf = Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
 type unif_test_gen = Proof.context -> unificationf -> string -> term Gen_Term.gen -> Random.rand -> unit
 
-val free_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (1,0,0) 10) 5
-val var_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (0,1,0) 10) 5
-val free_var_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (1,1,0) 10) 5
+val free_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (1.0,0.0,0.0) 10) 5
+val var_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (0.0,1.0,0.0) 10) 5
+val free_var_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (1.0,1.0,0.0) 10) 5
 
 val empty_env = Envir.empty 0
 
