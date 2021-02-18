@@ -9,7 +9,11 @@ ML\<open>
 val hint_unif = Fou.first_order_unify_h
 val std_unif = Fou.first_order_unify_thm
 
-
+fun incr_idx n =
+   fn Var ((name,idx),typ) => Var ((name,idx+n),typ)
+   |  Abs (s,T,t) => (Abs(s,T,incr_idx n t))
+   |  t1 $ t2 => incr_idx n t1 $ incr_idx n t2
+   |  t => t
 \<close>
 (* Symmetry *)
 ML\<open>test_group test_symmetry std_unif "Free/Var" free_var_gen\<close>
@@ -48,6 +52,7 @@ ML\<open>test_group test_theorem_correctness_var_term std_unif "Free/Var" free_v
 ML\<open>test_group test_theorem_correctness_var_term hint_unif "Free/Var" free_var_gen\<close>
 
 ML\<open>test_hunif (@{term_pat "?v1_7.0 ?v0_6.0"}, @{term_pat "?v1_1.0 f0_8"})\<close>
+
 
 (* Correct Environment is returned *)
 ML\<open>test_group test_sigma_unifies std_unif "Free/Var" free_var_gen\<close>

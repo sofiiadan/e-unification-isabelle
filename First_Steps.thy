@@ -465,18 +465,9 @@ fun test_hunif (t1,t2) =
   in () end
   handle Fou.Unif (tfail1,tfail2) => let val _ = tracing "Unification failed at terms: " in pretty_terms no_eta_ctxt [tfail1,tfail2] |> pwriteln end
        | Fou.Occurs_Check tfail1 =>  let val _ = tracing "Unification failed due to occurs check at terms: " in pretty_terms no_eta_ctxt [tfail1] |> pwriteln end
-       | TUNIFY => let val _ = tracing "Type unification failed" in () end
+       (*| TUNIFY => let val _ = tracing "Type unification failed" in () end*)
 \<close>
 ML_file \<open>Test.ML\<close>
-
-ML\<open>fun gen_term_typed tgen rand =
-  let val (t,r) = (tgen rand) in
-  (Syntax.check_term (Proof_Context.set_mode Proof_Context.mode_schematic @{context}) t,r)
-end;
-Proof_Context.read_term_pattern;
-
-gen_term_typed (Test.var_gen 5) (Random.new()) |> fst |>  pretty_term @{context};
-\<close>
 
 
 ML\<open>

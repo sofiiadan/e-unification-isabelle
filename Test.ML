@@ -53,6 +53,12 @@ fun replace_vars x = case x of
   |f$x => (replace_vars f) $ (replace_vars x)
   |t => t
 
+fun incr_idx n =
+   fn Var ((name,idx),typ) => Var ((name,idx+n),typ)
+   |  Abs (s,T,t) => (Abs(s,T,incr_idx n t))
+   |  t1 $ t2 => incr_idx n t1 $ incr_idx n t2
+   |  t => t
+
 fun gen_term_typed tgen rand =
   let val (t,r) = (tgen rand) in
   (Syntax.check_term (Proof_Context.set_mode Proof_Context.mode_schematic @{context}) t,r)
@@ -62,7 +68,7 @@ end
 fun gen_termtup tgen rand =
   let val (t1,rand1) = gen_term_typed tgen rand
       val (t2,rand2) = gen_term_typed tgen rand1
-  in ((t1,t2),rand2) end
+  in ((t1,incr_idx (Term.maxidx_of_term t1 +1) t2),rand2) end
 
 fun gen_var_termtup tgen rand =
   let val (t,rand) = gen_term_typed tgen rand
@@ -95,7 +101,7 @@ end handle _ => "Unification failed, terms: "^print_termtup ctxt (t1,t2)
 
 (* checks if two terms unify using unif *)
 fun terms_unify ctxt unif envir (t1,t2) =
-  let val (env,thm) = unif ctxt (t1,t2) envir
+  let val (_,_) = unif ctxt (t1,t2) envir
   in true end handle _ => false
 
 (* checks if the environment resulting from unif (t1,t2) unifies t1 and t2 *)
