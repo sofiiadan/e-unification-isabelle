@@ -30,6 +30,10 @@ structure Test : TEST =
 struct
 val ==> = Property.==>
 infix ==>
+<<<<<<< HEAD
+=======
+
+>>>>>>> e32918a04e5deea754bc4c276c7bbfe004ec84e5
 type unificationf = Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
 type unif_test_gen = Proof.context -> unificationf -> string -> term Gen_Term.gen -> Random.rand -> unit
 
@@ -138,6 +142,7 @@ Spec_Check.check_seq ctxt name
   (SOME (print_termtup ctxt))
   (fn _=>[])
   (Property.property (not o terms_unify ctxt unif empty_env))
+
 
 (**)
 fun test_termtup ctxt name prop gen =
