@@ -15,6 +15,7 @@ sig
 
   val test_symmetry : unif_test_gen
   val test_sigma_unifies : unif_test_gen
+  val test_sigma_unifies_repl_vars : unif_test_gen
   val test_theorem_correctness : unif_test_gen
   val test_theorem_correctness_var_term : unif_test_gen
   val test_non_unif : unif_test_gen
@@ -52,26 +53,31 @@ fun replace_vars x = case x of
   |f$x => (replace_vars f) $ (replace_vars x)
   |t => t
 
+fun gen_term_typed tgen rand =
+  let val (t,r) = (tgen rand) in
+  (Syntax.check_term (Proof_Context.set_mode Proof_Context.mode_schematic @{context}) t,r)
+end
+
 (* generates a tuple of terms using generator tgen *)
 fun gen_termtup tgen rand =
-  let val (t1,rand1) = tgen rand
-      val (t2,rand2) = tgen rand1
+  let val (t1,rand1) = gen_term_typed tgen rand
+      val (t2,rand2) = gen_term_typed tgen rand1
   in ((t1,t2),rand2) end
 
 fun gen_var_termtup tgen rand =
-  let val (t,rand) = tgen rand
+  let val (t,rand) = gen_term_typed tgen rand
   in ((Var(("AVAR",1001),TVar(("'atype",1001),[])),t),rand) end
 
 fun gen_termtup_repl_vars tgen rand =
-  let val (t,rand) = tgen rand
+  let val (t,rand) = gen_term_typed tgen rand
   in ((t,replace_vars t),rand) end
 
 fun gen_identical_termtup tgen rand =
-  let val (t,rand) = tgen rand
+  let val (t,rand) = gen_term_typed tgen rand
   in ((t,t),rand) end
 
 fun gen_occurs_clash_termtup tgen rand =
-  let val (t,rand) = tgen rand
+  let val (t,rand) = gen_term_typed tgen rand
       val var = hd (Term.add_vars t [])
   in ((Var var,t),rand) end
 

@@ -469,6 +469,16 @@ fun test_hunif (t1,t2) =
 \<close>
 ML_file \<open>Test.ML\<close>
 
+ML\<open>fun gen_term_typed tgen rand =
+  let val (t,r) = (tgen rand) in
+  (Syntax.check_term (Proof_Context.set_mode Proof_Context.mode_schematic @{context}) t,r)
+end;
+Proof_Context.read_term_pattern;
+
+gen_term_typed (Test.var_gen 5) (Random.new()) |> fst |>  pretty_term @{context};
+\<close>
+
+
 ML\<open>
 Test.unification @{context} Fou.first_order_unify_h (Envir.empty 0) 
   (@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"});\<close>
