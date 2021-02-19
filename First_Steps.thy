@@ -469,7 +469,6 @@ fun test_hunif (t1,t2) =
 \<close>
 ML_file \<open>Test.ML\<close>
 
-
 ML\<open>
 Test.unification @{context} Fou.first_order_unify_h (Envir.empty 0) 
   (@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"});\<close>
@@ -532,7 +531,10 @@ test_hunif
   (@{term_pat "r ((id 5) + (2 - Suc (id ?Y)) = Suc 4)::nat"},
    @{term_pat "(id r) (5 = id (Suc 4))::nat"});\<close>
 
-
+ML\<open>fun terms_match ctxt ts =
+  let val _ = Pattern.match (Proof_Context.theory_of ctxt) ts (Vartab.empty,Vartab.empty)
+  in true end handle _ => false;
+\<close>
 
 
 (* Problem : consts sind nicht deklariert, term kann nicht zertifiziert werden  *)

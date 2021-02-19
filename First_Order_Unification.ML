@@ -41,27 +41,13 @@ val symmetric = @{thm Pure.symmetric}
 
 fun flip_thm thm = symmetric OF [thm]
 
-(* Increment the indexes of only the type variables, from Metis_Reconstruct*)
-fun incr_type_indexes ctxt inc th =
-  let
-    val tvs = Term.add_tvars (Thm.full_prop_of th) []
-    fun inc_tvar ((a, i), s) = (((a, i), s), Thm.ctyp_of ctxt (TVar ((a, i + inc), s)))
-  in
-    Thm.instantiate (map inc_tvar tvs, []) th
-  end
-
 (* Rename the type variable names to str *)
-fun rename_type_variables ctxt typ th =
-  let
-    val tvs = Term.add_tvars (Thm.full_prop_of th) []
-    fun rename_tvar tv = (tv, Thm.ctyp_of ctxt typ)
-  in
-    Thm.instantiate (map rename_tvar tvs, []) th
-  end
+fun instantiate_type_var ctxt typ th =
+  Thm.instantiate ([(hd (Term.add_tvars (Thm.full_prop_of th) []), Thm.ctyp_of ctxt typ)], []) th
 
 (* instantiates Pure.reflexive with [t/x_0] *)
 fun instantiate_refl ctxt t =
-  let val renamed_refl = rename_type_variables ctxt (type_of t) reflexive
+  let val renamed_refl = instantiate_type_var ctxt (type_of t) reflexive
       val xVar =  (hd (Term.add_vars (Thm.full_prop_of renamed_refl) []))
   in
     infer_instantiate_types ctxt [(xVar,Thm.cterm_of ctxt t)] renamed_refl
@@ -89,8 +75,6 @@ fun contains_var v =
 fun ty_unify ctxt typs (Envir.Envir {maxidx,tenv,tyenv}) =
       let val (new_tyE,_) = Sign.typ_unify (Proof_Context.theory_of ctxt) typs (tyenv,maxidx)
       in Envir.Envir {maxidx = maxidx, tenv = tenv, tyenv = new_tyE} end
-
-
 
 (* increase index of all Vars in term by n *)
 fun incr_idx n =

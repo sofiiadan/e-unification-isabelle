@@ -8,42 +8,16 @@ ML\<open>open Test\<close>
 ML\<open>
 val hint_unif = Fou.first_order_unify_h
 val std_unif = Fou.first_order_unify_thm
-
-fun incr_idx n =
-   fn Var ((name,idx),typ) => Var ((name,idx+n),typ)
-   |  Abs (s,T,t) => (Abs(s,T,incr_idx n t))
-   |  t1 $ t2 => incr_idx n t1 $ incr_idx n t2
-   |  t => t
 \<close>
+
 (* Symmetry *)
 ML\<open>test_group test_symmetry std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_symmetry hint_unif "Free/Var" free_var_gen\<close>
 
-(* non-unifiable Var-free terms *)
-ML\<open>test_group test_non_unif std_unif "Free only" free_gen\<close>
-ML\<open>test_group test_non_unif hint_unif "Free only" free_gen\<close>
-ML\<open>test_group test_non_unif std_unif "Free only" free_gen\<close>
-ML\<open>test_group test_non_unif hint_unif "Free only" free_gen\<close>
-
-(* Occurs check, tests fail for terms of size 1 (identical Vars) *)
-ML\<open>test_group test_occurs_check std_unif "Var only" var_gen\<close>
-ML\<open>test_group test_occurs_check hint_unif "Var only" var_gen\<close>
-
-(* Var, term unification *)
-(* type issue; function argument type /= function type *)
-ML\<open>test_group test_unif_var_term std_unif "Free/Var" free_var_gen\<close>
-ML\<open>test_group test_unif_var_term hint_unif "Free/Var" free_var_gen\<close>
-
-ML\<open>test_hunif (Free("f",TVar(("'a",0),[]) --> TVar(("'b",0),[])) $ (Free ("x",TVar(("'a",0),[]))), Var(("A",0),TVar(("'a",0),[])))\<close>
-
-(* Unification of identical terms *)
-ML\<open>test_group test_identical_unif std_unif "Free/Var" free_var_gen\<close>
-ML\<open>test_group test_identical_unif hint_unif "Free/Var" free_var_gen\<close>
-
 (* Unification of identical terms does not change environment *)
 ML\<open>test_group test_noop std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_noop hint_unif "Free/Var" free_var_gen\<close>
-
+ML\<open>@{term_pat "?Y"} aconv @{term_pat "?Y"}\<close>
 (* Correct theorem is returned *)
 ML\<open>test_group test_theorem_correctness std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_theorem_correctness hint_unif "Free/Var" free_var_gen\<close>
@@ -51,23 +25,46 @@ ML\<open>test_group test_theorem_correctness hint_unif "Free/Var" free_var_gen\<
 ML\<open>test_group test_theorem_correctness_var_term std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_theorem_correctness_var_term hint_unif "Free/Var" free_var_gen\<close>
 
-ML\<open>test_hunif (@{term_pat "?v1_7.0 ?v0_6.0"}, @{term_pat "?v1_1.0 f0_8"})\<close>
-
+ML\<open>test_group test_theorem_correctness_vars_replaced std_unif "Free/Var" free_var_gen\<close>
+ML\<open>test_group test_theorem_correctness_vars_replaced hint_unif "Free/Var" free_var_gen\<close>
 
 (* Correct Environment is returned *)
 ML\<open>test_group test_sigma_unifies std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_sigma_unifies hint_unif "Free/Var" free_var_gen\<close>
 
-(* Correct Environment is returned *)
+ML\<open>test_group test_sigma_unifies_var_term std_unif "Free/Var" free_var_gen\<close>
+ML\<open>test_group test_sigma_unifies_var_term hint_unif "Free/Var" free_var_gen\<close>
+
 ML\<open>test_group test_sigma_unifies_vars_replaced std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_sigma_unifies_vars_replaced hint_unif "Free/Var" free_var_gen\<close>
 
-(* multiple identical Vars can lead to failing tests *)
+
+(** non-unifiability tests **)
+(* Occurs check stops unification *)
+ML\<open>test_group test_occurs_check std_unif "Var only" var_gen\<close>
+ML\<open>test_group test_occurs_check hint_unif "Var only" var_gen\<close>
+
+(* non-unifiable Var-free terms *)
+ML\<open>test_group test_non_unif std_unif "Free only" free_gen\<close>
+ML\<open>test_group test_non_unif hint_unif "Free only" free_gen\<close>
+ML\<open>test_group test_non_unif_rev std_unif "Free only" free_gen\<close>
+ML\<open>test_group test_non_unif_rev hint_unif "Free only" free_gen\<close>
+
+(** unifiability-tests **)
+(* Unification of identical terms *)
+ML\<open>test_group test_identical_unif std_unif "Free/Var" free_var_gen\<close>
+ML\<open>test_group test_identical_unif hint_unif "Free/Var" free_var_gen\<close>
+
+(* Var x unifies with arbitrary term not containing x *)
+ML\<open>test_group test_unif_var_term std_unif "Free/Var" free_var_gen\<close>
+ML\<open>test_group test_unif_var_term hint_unif "Free/Var" free_var_gen\<close>
+
+(* term unifies with term where all Vars are replaced by Frees *)
 ML\<open>test_group test_unif_vars_replaced std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_unif_vars_replaced hint_unif "Free/Var" free_var_gen\<close>
 
 
-(* Manual tests with Var/Free and TVar/TFree *)
+(** manual tests with Var/Free and TVar/TFree **)
 (* should unify, using std_unif *)
 ML\<open>test_list_pos @{context} std_unif "Var/Free, TVar/TFree combinations unify"
   [(Var(("A",0),TVar(("'a",0),[])),Free("A",TFree("'a",[]))),
@@ -95,7 +92,7 @@ ML\<open>test_list_neg @{context} hint_unif "Different Free/TFree fails"
   [(Free("A",TFree("'a",[])),Free("A",TFree("'b",[]))),
    (Free("A",TFree("'a",[])),Free("B",TFree("'a",[])))]\<close>
 
-(* Hint tests *)
+(** hint tests **)
 
 (* add_zero *)
 ML\<open>test_list_neg @{context} hint_unif "add_zero without hint"
@@ -135,6 +132,20 @@ lemma suc2 [hints]: "X \<equiv> 2 \<Longrightarrow> Suc X \<equiv> 3"
   by linarith
 ML\<open>test_list_pos @{context} hint_unif "Suc ?x = 3 with hint"
   [(@{term_pat "Suc ?x ::nat"},
-   @{term_pat "3::nat"})]\<close>
+    @{term_pat "3::nat"})]\<close>
+
+(* Suc x = 4, multiple matching hints, first one doesn't unify *)
+definition x_def: "x\<equiv>3::nat"
+ML\<open>test_list_neg @{context} hint_unif "Suc ?x = 3 without hint"
+  [(@{term_pat "Suc x ::nat"},
+    @{term_pat "4::nat"})]\<close>
+lemma suc_x_4 [hints]: "Suc x \<equiv> 4"
+  by (simp add:x_def)
+lemma suc3 [hints]: "X \<equiv> 3 \<Longrightarrow> Suc X \<equiv> 4"
+  by linarith
+ML\<open>test_list_pos @{context} hint_unif "Suc ?x = 3 with hint"
+  [(@{term_pat "Suc x ::nat"},
+   @{term_pat "4::nat"})]\<close>
+
 
 end
