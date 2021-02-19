@@ -447,7 +447,7 @@ lemma ID_EQ:
 
 ML \<open>val hints = Fou.gen_hint_list @{context}
 \<close>
-declare  [[log_level=400]]
+declare  [[log_level=1000]]
 ML\<open>
 val no_eta_ctxt = Config.put eta_contract false @{context};
 fun test_hunif (t1,t2) =
@@ -531,18 +531,12 @@ test_hunif
   (@{term_pat "r ((id 5) + (2 - Suc (id ?Y)) = Suc 4)::nat"},
    @{term_pat "(id r) (5 = id (Suc 4))::nat"});\<close>
 
-ML\<open>fun terms_match ctxt ts =
-  let val _ = Pattern.match (Proof_Context.theory_of ctxt) ts (Vartab.empty,Vartab.empty)
-  in true end handle _ => false;
-\<close>
-
-
 (* Problem : consts sind nicht deklariert, term kann nicht zertifiziert werden  *)
 ML\<open>
 val (t1,t2) = (Var (("v0_2", 0), TVar (("'a",0),[])),Const ("c0_0", TVar(("'a",0),[])));
 val context = fold Variable.declare_term [t1,t2] @{context};
 Test.unification context Fou.first_order_unify_thm (Envir.empty 0) (t1,t2)
 \<close>
-
+ML\<open>Gen_Term.term_fol (Gen_Term.def_sym_gen (1,1,0) 10) 5 10 (Random.new()) |> fst |> pretty_term @{context}\<close>
 
 end

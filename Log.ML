@@ -11,12 +11,12 @@ sig
   val ALL   : loglevel
   val log_level_config : loglevel Config.T
   val log : Proof.context -> loglevel -> ('a -> {}) -> 'a -> {}
-  val log_fatal : Proof.context -> ('a -> {}) -> 'a -> {}
-  val log_err : Proof.context -> ('a -> {}) -> 'a -> {}
-  val log_warn : Proof.context -> ('a -> {}) -> 'a -> {}
-  val log_info : Proof.context -> ('a -> {}) -> 'a -> {}
-  val log_debug : Proof.context -> ('a -> {}) -> 'a -> {}
-  val log_trace : Proof.context -> ('a -> {}) -> 'a -> {}
+  val fatal : Proof.context -> ('a -> {}) -> 'a -> {}
+  val err : Proof.context -> ('a -> {}) -> 'a -> {}
+  val warn : Proof.context -> ('a -> {}) -> 'a -> {}
+  val info : Proof.context -> ('a -> {}) -> 'a -> {}
+  val debug : Proof.context -> ('a -> {}) -> 'a -> {}
+  val trace : Proof.context -> ('a -> {}) -> 'a -> {}
 end
 
 structure Log : LOG =
@@ -40,11 +40,11 @@ val log_level_config = Attrib.setup_config_int @{binding \<open>log_level\<close
 fun log ctxt custom_lvl print_f = if custom_lvl < Config.get ctxt log_level_config then print_f else K ()
 
 (* logging functions for different log levels *)
-fun log_fatal ctxt = log ctxt FATAL
-fun log_err ctxt = log ctxt ERR
-fun log_warn ctxt = log ctxt WARN
-fun log_info ctxt = log ctxt INFO
-fun log_debug ctxt = log ctxt DEBUG
-fun log_trace ctxt = log ctxt TRACE
+fun fatal ctxt = log ctxt FATAL
+fun err ctxt = log ctxt ERR
+fun warn ctxt = log ctxt WARN
+fun info ctxt = log ctxt INFO
+fun debug ctxt = log ctxt DEBUG
+fun trace ctxt = log ctxt TRACE
 
 end

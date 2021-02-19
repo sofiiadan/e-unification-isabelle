@@ -5,10 +5,8 @@ begin
 ML_file "Test.ML"
 ML\<open>open Test\<close>
 
-ML\<open>
-val hint_unif = Fou.first_order_unify_h
-val std_unif = Fou.first_order_unify_thm
-\<close>
+ML\<open>val hint_unif = Fou.first_order_unify_h
+   val std_unif = Fou.first_order_unify_thm\<close>
 
 (* Symmetry *)
 ML\<open>test_group test_symmetry std_unif "Free/Var" free_var_gen\<close>
@@ -17,7 +15,7 @@ ML\<open>test_group test_symmetry hint_unif "Free/Var" free_var_gen\<close>
 (* Unification of identical terms does not change environment *)
 ML\<open>test_group test_noop std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_noop hint_unif "Free/Var" free_var_gen\<close>
-ML\<open>@{term_pat "?Y"} aconv @{term_pat "?Y"}\<close>
+
 (* Correct theorem is returned *)
 ML\<open>test_group test_theorem_correctness std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_theorem_correctness hint_unif "Free/Var" free_var_gen\<close>
@@ -63,7 +61,7 @@ ML\<open>test_group test_unif_var_term hint_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_unif_vars_replaced std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group test_unif_vars_replaced hint_unif "Free/Var" free_var_gen\<close>
 
-
+ML\<open>pretty_term @{context} (Var(("A",0),TVar(("'a",0),[])))\<close>
 (** manual tests with Var/Free and TVar/TFree **)
 (* should unify, using std_unif *)
 ML\<open>test_list_pos @{context} std_unif "Var/Free, TVar/TFree combinations unify"
@@ -136,16 +134,29 @@ ML\<open>test_list_pos @{context} hint_unif "Suc ?x = 3 with hint"
 
 (* Suc x = 4, multiple matching hints, first one doesn't unify *)
 definition x_def: "x\<equiv>3::nat"
-ML\<open>test_list_neg @{context} hint_unif "Suc ?x = 3 without hint"
+ML\<open>test_list_neg @{context} hint_unif "Suc x = 4 without hint"
   [(@{term_pat "Suc x ::nat"},
     @{term_pat "4::nat"})]\<close>
 lemma suc_x_4 [hints]: "Suc x \<equiv> 4"
   by (simp add:x_def)
 lemma suc3 [hints]: "X \<equiv> 3 \<Longrightarrow> Suc X \<equiv> 4"
   by linarith
-ML\<open>test_list_pos @{context} hint_unif "Suc ?x = 3 with hint"
+ML\<open>test_list_pos @{context} hint_unif "Suc x = 4 with multiple matching hints, only second one solves"
   [(@{term_pat "Suc x ::nat"},
    @{term_pat "4::nat"})]\<close>
+
+(* Suc (Suc 0) = 2 *)
+ML\<open>test_list_neg @{context} hint_unif "Suc ?x = 3 without hint"
+  [(@{term_pat "Suc (Suc ?X) ::nat"},
+    @{term_pat "2::nat"})]\<close>
+lemma suc0 [hints]: "X \<equiv> 0 \<Longrightarrow> Suc X \<equiv> 1"
+  by linarith
+lemma suc1 [hints]: "X \<equiv> 1 \<Longrightarrow> Suc X \<equiv> 2"
+  by linarith
+ML\<open>test_list_pos @{context} hint_unif "Suc ?x = 3 with hint"
+  [(@{term_pat "Suc (Suc ?X) ::nat"},
+    @{term_pat "2::nat"})]\<close>
+
 
 
 end

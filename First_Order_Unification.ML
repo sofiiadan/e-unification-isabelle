@@ -41,27 +41,25 @@ val symmetric = @{thm Pure.symmetric}
 
 fun flip_thm thm = symmetric OF [thm]
 
-(* Rename the type variable names to str *)
-fun instantiate_type_var ctxt typ th =
-  Thm.instantiate ([(hd (Term.add_tvars (Thm.full_prop_of th) []), Thm.ctyp_of ctxt typ)], []) th
+(* Instantiate the first type variable in th with typ *)
+fun instantiate_type_var ctxt typ thm =
+  Thm.instantiate ([(hd (Term.add_tvars (Thm.full_prop_of thm) []), Thm.ctyp_of ctxt typ)], []) thm
 
 (* instantiates Pure.reflexive with [t/x_0] *)
 fun instantiate_refl ctxt t =
   let val renamed_refl = instantiate_type_var ctxt (type_of t) reflexive
       val xVar =  (hd (Term.add_vars (Thm.full_prop_of renamed_refl) []))
-  in
-    infer_instantiate_types ctxt [(xVar,Thm.cterm_of ctxt t)] renamed_refl
+  in infer_instantiate_types ctxt [(xVar,Thm.cterm_of ctxt t)] renamed_refl
   end
-
-(* TODO renaming better *)
 
 (*map function over bound indices, from pattern.ML*)
 fun mapbnd f =
-    let fun mpb d (Bound (i))    = if i < d then Bound(i) else Bound(f(i-d)+d)
-          | mpb d (Abs (s,T,t))  = Abs(s,T,mpb(d+1) t)
-          | mpb d (u1 $ u2)      = (mpb d u1)$(mpb d u2)
-          | mpb _ atom           = atom
-    in mpb 0 end
+  let fun mpb d (Bound (i))    = if i < d then Bound(i) else Bound(f(i-d)+d)
+        | mpb d (Abs (s,T,t))  = Abs(s,T,mpb(d+1) t)
+        | mpb d (u1 $ u2)      = (mpb d u1)$(mpb d u2)
+        | mpb _ atom           = atom
+  in mpb 0
+  end
 
 val incr = mapbnd (fn i => i+1)
 
@@ -71,10 +69,6 @@ fun contains_var v =
   |  t1 $ t2     => contains_var v t2 orelse contains_var v t1
   |  Abs (_,_,t) => contains_var v t
   |  _           => false
-
-fun ty_unify ctxt typs (Envir.Envir {maxidx,tenv,tyenv}) =
-      let val (new_tyE,_) = Sign.typ_unify (Proof_Context.theory_of ctxt) typs (tyenv,maxidx)
-      in Envir.Envir {maxidx = maxidx, tenv = tenv, tyenv = new_tyE} end
 
 (* increase index of all Vars in term by n *)
 fun incr_idx n =
@@ -95,22 +89,31 @@ fun strings_flat (x::xs) = fold (fn curr => fn acc => acc^", "^curr) xs x
 
 fun unzip l = (map fst l, map snd l)
 
+(* unifies typs, returns Envir.Envir *)
+fun ty_unify ctxt typs (Envir.Envir {maxidx,tenv,tyenv}) =
+  let val (new_tyE,_) = Sign.typ_unify (Proof_Context.theory_of ctxt) typs (tyenv,maxidx)
+  in Envir.Envir {maxidx = maxidx, tenv = tenv, tyenv = new_tyE}
+  end
+
+
 
 (* generates a list of hints from named theorems "hints" *)
 fun gen_hint_list ctxt =
   let val (hs,strs) = Proof_Context.get_thms ctxt "hints" |> map gen_hint |> unzip
       val thmStrs = filter (fn x => x <> "") strs
       val _ = if null thmStrs then ()
-        else tracing ("The following theorems cannot be used as hints: "^ strings_flat thmStrs)
+        else Log.info ctxt tracing ("The following theorems cannot be used as hints: "^ strings_flat thmStrs)
   in hs |> filter Option.isSome
         |> map Option.valOf
-        |> rev end
+        |> rev
+  end
 
 (* converts Envir into lists of var to cterm and tvar to ctype mappings *)
 fun env_lists (Envir.Envir {tenv,tyenv,...}) ctxt =
-let fun ctyp (i_n,(sort,ty)) = ((i_n,sort),Thm.ctyp_of ctxt ty)
-    fun ctrm (i_n,(typ,t)) = ((i_n,typ),Thm.cterm_of ctxt t)
-in (map ctyp (Vartab.dest tyenv), map ctrm (Vartab.dest tenv)) end
+  let fun ctyp (i_n,(sort,ty)) = ((i_n,sort),Thm.ctyp_of ctxt ty)
+      fun ctrm (i_n,(typ,t)) = ((i_n,typ),Thm.cterm_of ctxt t)
+  in (map ctyp (Vartab.dest tyenv), map ctrm (Vartab.dest tenv))
+  end
 
 (* converts Envir into var to cterm list without type (for infer_instantiate) *)
 fun envlist ctxt env = env_lists env ctxt |> snd |> map (fn ((a,_),c) => (a,c))
@@ -203,7 +206,7 @@ fun first_order_unify_thm ctxt (term1,term2) env =
     Envir.norm_term env term2 |> Envir.eta_contract)
 
 (* tries to apply a hint to solve unification of (t1=?t2),
-   Frees in hint are renamed to avoid naming conflicts during matching,
+   Vars in hint are renamed to avoid naming conflicts during matching,
    returns SOME (Envir,thm) if successfull *)
 fun try_hint ctxt (Envir.Envir {maxidx,tenv,tyenv}) (t1,t2) (hint as ((h1_raw,h2_raw),hint_tenv,hint_thm)) =
     let val pmatch = Pattern.match (Proof_Context.theory_of ctxt)
@@ -214,13 +217,13 @@ fun try_hint ctxt (Envir.Envir {maxidx,tenv,tyenv}) (t1,t2) (hint as ((h1_raw,h2
           handle Pattern.MATCH => idx_envs_to_envir maxidx_new (pmatch (h2,t1) (pmatch (h1,t2) unif_env_tup)))
         val hint_thm_matched = infer_instantiate ctxt (envlist ctxt match_envir) (Thm.incr_indexes (maxidx+1) hint_thm)
         fun foldfun ((s,i),(typ,term)) envir =
-          first_order_unify ctxt (Envir.norm_term match_envir (incr_idx (maxidx+1) term),Envir.lookup match_envir ((s,i+maxidx+1),typ) |> Option.valOf) envir
+          first_order_unify_thm ctxt (Envir.norm_term match_envir (incr_idx (maxidx+1) term),Envir.lookup match_envir ((s,i+maxidx+1),typ) |> Option.valOf) envir |> fst
         val envir_return = Vartab.fold foldfun hint_tenv (Envir.Envir {maxidx=maxidx_new,tenv=Envir.term_env match_envir,tyenv=Envir.type_env match_envir})
     in SOME (ENV (envir_return,infer_instantiate ctxt (envlist ctxt envir_return) hint_thm_matched)) end
     handle Pattern.MATCH => NONE | Unif _ => SOME (MATCH ((t1,t2),hint))
 
 (* tries to apply a hint to solve unification of (t1=?t2) using first order unification,
-   Frees in hint are renamed to avoid naming conflicts during unification,
+   Vars in hint are renamed to avoid naming conflicts during unification,
    returns SOME (Envir,thm) if successfull *)
 fun try_hint_unif ctxt (unif_envir as Envir.Envir {maxidx,...}) (t1,t2) ((h1_raw,h2_raw),hint_tenv,hint_thm) =
     let val unify = first_order_unify ctxt
@@ -236,7 +239,7 @@ fun try_hint_unif ctxt (unif_envir as Envir.Envir {maxidx,...}) (t1,t2) ((h1_raw
 end handle _ => NONE
 
 (* tries to apply a hint to solve unification of (t1=?t2) using kernel unification,
-   Frees in hint are renamed to avoid naming conflicts during unification,
+   Vars in hint are renamed to avoid naming conflicts during unification,
    returns SOME (Envir,thm) if successfull *)
 fun try_hint_unif_kernel ctxt (unif_envir as Envir.Envir {maxidx,...}) (t1,t2) ((h1_raw,h2_raw),hint_tenv,hint_thm) =
     let val unify = Pattern.unify (Context.Proof ctxt)
@@ -253,16 +256,36 @@ fun try_hint_unif_kernel ctxt (unif_envir as Envir.Envir {maxidx,...}) (t1,t2) (
 end handle _ => NONE
 
 
-(* assembles list of matching hints from list, drops first i hints*)
-fun appl_hints ctxt envir (t1,t2) i =
-  map Option.valOf
-    o drop i
-    o filter Option.isSome
-    o map (fn h => try_hint ctxt envir (t1,t2) h)
 
 (* first order unification with hints *)
 fun hint_unify ctxt hints (term1,term2) env =
-let fun unif envir (t1,t2) =
+let 
+  (* tries to apply a hint to solve unification of (t1=?t2),
+   Vars in hint are renamed to avoid naming conflicts during matching,
+   unifying resulting subgoal using hint unification recursively
+   returns SOME (Envir,thm) if successfull *)
+  fun try_hint_recursive ctxt (Envir.Envir {maxidx,tenv,tyenv}) (t1,t2) (hint as ((h1_raw,h2_raw),hint_tenv,hint_thm)) =
+    let val pmatch = Pattern.match (Proof_Context.theory_of ctxt)
+        val (h1,h2) = (incr_idx (maxidx+1) h1_raw,incr_idx (maxidx+1) h2_raw)
+        val maxidx_new = Int.max (maxidx,Int.max (maxidx_of_term h1,maxidx_of_term h2))
+        val unif_env_tup = (tyenv,tenv)
+        val match_envir = (idx_envs_to_envir maxidx_new (pmatch (h2,t2) (pmatch (h1,t1) unif_env_tup))
+          handle Pattern.MATCH => idx_envs_to_envir maxidx_new (pmatch (h2,t1) (pmatch (h1,t2) unif_env_tup)))
+        val hint_thm_matched = infer_instantiate ctxt (envlist ctxt match_envir) (Thm.incr_indexes (maxidx+1) hint_thm)
+        fun foldfun ((s,i),(typ,term)) envir =
+          hint_unify ctxt hints (Envir.norm_term match_envir (incr_idx (maxidx+1) term),Envir.lookup match_envir ((s,i+maxidx+1),typ) |> Option.valOf) envir |> fst
+        val envir_return = Vartab.fold foldfun hint_tenv (Envir.Envir {maxidx=maxidx_new,tenv=Envir.term_env match_envir,tyenv=Envir.type_env match_envir})
+    in SOME (ENV (envir_return,infer_instantiate ctxt (envlist ctxt envir_return) hint_thm_matched)) end
+    handle Pattern.MATCH => NONE | Unif _ => SOME (MATCH ((t1,t2),hint))
+
+  (* assembles list of matching hints from list, drops first i hints*)
+  fun appl_hints ctxt envir (t1,t2) i =
+    map Option.valOf
+      o drop i
+      o filter Option.isSome
+      o map (fn h => try_hint_recursive ctxt envir (t1,t2) h)
+
+  fun unif envir (t1,t2) =
   (case (t1,t2) of
       (Free(x,tyx),Free(y,tyy)) =>
         if x=y then
@@ -318,22 +341,26 @@ in
     (Envir.Envir {tenv=Envir.term_env env,tyenv=Envir.type_env env,maxidx=Int.max (maxidx_of_term term1,maxidx_of_term term2)})
     (term1 |> Envir.norm_term env |> Envir.eta_contract,
      term2 |> Envir.norm_term env |> Envir.eta_contract)
-  in (sigma, discharge_prems thm (Thm.nprems_of thm)) end
+  in (sigma, discharge_prems thm (Thm.nprems_of thm))
+  end
 end
 
 fun print_hint ctxt (t1,t2,thm) =
-  "Terms " ^ Pretty.string_of (pretty_term ctxt t1) ^ ", " ^ Pretty.string_of (pretty_term ctxt t2)
-  ^ " matched hint: " ^ Pretty.string_of (pretty_thm ctxt thm)
+  "Terms "
+    ^ Pretty.string_of (pretty_term ctxt t1) ^ ", "
+    ^ Pretty.string_of (pretty_term ctxt t2) ^ " matched hint: "
+    ^ Pretty.string_of (pretty_thm ctxt thm)
 
 fun print_matching_hints ctxt hs =
   let val _ = tracing "These hints matched but the resulting unification could not be solved:"
-  in map (fn ((t1,t2),(_,_,thm)) => writeln (print_hint ctxt (t1,t2,thm))) hs; () end
+  in fold (fn ((t1,t2),(_,_,thm)) => fn _ => tracing (print_hint ctxt (t1,t2,thm))) hs () end
 
 fun first_order_unify_h ctxt ts env =
   hint_unify ctxt (gen_hint_list ctxt) ts env
   handle Matching_Hints (hs,exn) =>
-    let val _ = Log.log ctxt Log.INFO (print_matching_hints ctxt) hs
-    in raise exn end
+    let val _ = Log.info ctxt (print_matching_hints ctxt) hs
+    in raise exn
+    end
     
 
 end
