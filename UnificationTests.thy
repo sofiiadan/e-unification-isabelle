@@ -144,7 +144,7 @@ lemma suc3 [hints]: "X \<equiv> 3 \<Longrightarrow> Suc X \<equiv> 4"
 ML\<open>test_list_pos @{context} hint_unif "Suc x = 4 with multiple matching hints, only second one solves"
   [(@{term_pat "Suc x ::nat"},
    @{term_pat "4::nat"})]\<close>
-
+declare [[log_level=600]]
 (* Suc (Suc 0) = 2 *)
 ML\<open>test_list_neg @{context} hint_unif "Suc ?x = 3 without hint"
   [(@{term_pat "Suc (Suc ?X) ::nat"},

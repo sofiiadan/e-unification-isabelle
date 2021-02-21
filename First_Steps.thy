@@ -469,54 +469,6 @@ fun test_hunif (t1,t2) =
 \<close>
 ML_file \<open>Test.ML\<close>
 
-ML\<open>
-Test.unification @{context} Fou.first_order_unify_h (Envir.empty 0) 
-  (@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "(\<lambda>x. f x)::nat\<Rightarrow>nat"},
-   @{term_pat "?g::nat\<Rightarrow>nat"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "1 * ?b \<le> 2 * (?x::nat)"},
-   @{term_pat "1 \<le> ?a * (?A::nat)"});\<close>
-ML\<open>
-test_hunif 
-  (@{term_pat "a :: 'a \<Rightarrow> 'c"},
-   @{term_pat "a :: 'a \<Rightarrow> 'a"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "b + 0  ::nat"},
-   @{term_pat "b      ::nat"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "Suc ?x ::nat"},
-   @{term_pat "3      ::nat"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "id ?X  ::nat"},
-   @{term_pat "?X     ::nat"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "id ?X ::nat"},
-   @{term_pat "5     ::nat"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "5      ::nat"},
-   @{term_pat "?b + 0 ::nat"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "?a + 5       ::nat"},
-   @{term_pat "1 + (?b + 0) ::nat"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "(\<lambda>x. ?f x) (4::nat)"},
-   @{term_pat "g (?a+0::nat)"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "a+0::nat"},
-   @{term_pat "a::nat"});\<close>
-
 (* ging mit rekursiver hint unification *)
 ML\<open>
 test_hunif
@@ -531,7 +483,7 @@ test_hunif
   (@{term_pat "r ((id 5) + (2 - Suc (id ?Y)) = Suc 4)::nat"},
    @{term_pat "(id r) (5 = id (Suc 4))::nat"});\<close>
 
-(* Problem : consts sind nicht deklariert, term kann nicht zertifiziert werden  *)
+(* Problem : consts sind nicht deklariert, term kann nicht zertifiziert werden *)
 ML\<open>
 val (t1,t2) = (Var (("v0_2", 0), TVar (("'a",0),[])),Const ("c0_0", TVar(("'a",0),[])));
 val context = fold Variable.declare_term [t1,t2] @{context};

@@ -5,7 +5,7 @@ sig
   exception Unif of term * term
   exception Occurs_Check of term
   exception Malformed_Hint of string
-  exception Matching_Hints of ((term * term) * hint) list * exn
+  exception Matching_Hints of ((term * term) * hint * exn) list * exn
   val first_order_unify :
     Proof.context -> term * term -> Envir.env -> Envir.env
   val first_order_unify_thm :
@@ -23,14 +23,14 @@ structure Fou : First_Order_Unification =
 struct
 
 type hint = (term * term) * Envir.tenv * thm
-datatype unif_option = ENV of Envir.env * thm | MATCH of (term * term) * hint
+datatype unif_option = ENV of Envir.env * thm | MATCH of (term * term) * hint * exn
 val is_env = fn ENV _ => true | _ => false
 
 exception Unif of term * term
 exception Occurs_Check of term
 exception Malformed_Hint of string
 exception Hint_Unif of term * term * hint
-exception Matching_Hints of ((term * term) * hint) list * exn
+exception Matching_Hints of ((term * term) * hint * exn) list * exn
 
 val hint_trace = Attrib.setup_config_bool @{binding \<open>hint_trace\<close>} (K false)
 
@@ -220,7 +220,7 @@ fun try_hint ctxt (Envir.Envir {maxidx,tenv,tyenv}) (t1,t2) (hint as ((h1_raw,h2
           first_order_unify_thm ctxt (Envir.norm_term match_envir (incr_idx (maxidx+1) term),Envir.lookup match_envir ((s,i+maxidx+1),typ) |> Option.valOf) envir |> fst
         val envir_return = Vartab.fold foldfun hint_tenv (Envir.Envir {maxidx=maxidx_new,tenv=Envir.term_env match_envir,tyenv=Envir.type_env match_envir})
     in SOME (ENV (envir_return,infer_instantiate ctxt (envlist ctxt envir_return) hint_thm_matched)) end
-    handle Pattern.MATCH => NONE | Unif _ => SOME (MATCH ((t1,t2),hint))
+    handle Pattern.MATCH => NONE | Unif ts => SOME (MATCH ((t1,t2),hint,Unif ts))
 
 (* tries to apply a hint to solve unification of (t1=?t2) using first order unification,
    Vars in hint are renamed to avoid naming conflicts during unification,
@@ -276,7 +276,7 @@ let
           hint_unify ctxt hints (Envir.norm_term match_envir (incr_idx (maxidx+1) term),Envir.lookup match_envir ((s,i+maxidx+1),typ) |> Option.valOf) envir |> fst
         val envir_return = Vartab.fold foldfun hint_tenv (Envir.Envir {maxidx=maxidx_new,tenv=Envir.term_env match_envir,tyenv=Envir.type_env match_envir})
     in SOME (ENV (envir_return,infer_instantiate ctxt (envlist ctxt envir_return) hint_thm_matched)) end
-    handle Pattern.MATCH => NONE | Unif _ => SOME (MATCH ((t1,t2),hint))
+    handle Pattern.MATCH => NONE | Unif ts => SOME (MATCH ((t1,t2),hint,Unif ts))
 
   (* assembles list of matching hints from list, drops first i hints*)
   fun appl_hints ctxt envir (t1,t2) i =
@@ -345,15 +345,19 @@ in
   end
 end
 
-fun print_hint ctxt (t1,t2,thm) =
+fun print_matched_hint ctxt (t1,t2,thm) =
   "Terms "
     ^ Pretty.string_of (pretty_term ctxt t1) ^ ", "
     ^ Pretty.string_of (pretty_term ctxt t2) ^ " matched hint: "
     ^ Pretty.string_of (pretty_thm ctxt thm)
+    
 
 fun print_matching_hints ctxt hs =
   let val _ = tracing "These hints matched but the resulting unification could not be solved:"
-  in fold (fn ((t1,t2),(_,_,thm)) => fn _ => tracing (print_hint ctxt (t1,t2,thm))) hs () end
+  in fold (fn ((t1,t2),(_,_,thm),exn) => fn _ =>
+        (tracing (print_matched_hint ctxt (t1,t2,thm));
+         Log.debug ctxt (tracing o (fn str => "Exception thrown:\n"^str) o @{make_string}) exn)) hs ()
+  end
 
 fun first_order_unify_h ctxt ts env =
   hint_unify ctxt (gen_hint_list ctxt) ts env
