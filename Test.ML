@@ -5,11 +5,11 @@ sig
   type unif_test_gen
   val unification : Proof.context -> unificationf -> Envir.env -> (term * term) -> (Envir.env * thm)
 
-  val free_gen : int -> term Gen_Term.gen
-  val var_gen : int -> term Gen_Term.gen
-  val free_var_gen : int -> term Gen_Term.gen
+  val free_gen : int -> term Gen_Types.gen
+  val var_gen : int -> term Gen_Types.gen
+  val free_var_gen : int -> term Gen_Types.gen
 
-  val test_group : unif_test_gen -> unificationf -> string -> (int -> term Gen_Term.gen) -> unit
+  val test_group : unif_test_gen -> unificationf -> string -> (int -> term Gen_Types.gen) -> unit
   val test_list_pos : Proof.context -> unificationf -> string -> (term * term) list -> unit
   val test_list_neg : Proof.context -> unificationf -> string -> (term * term) list -> unit
 
@@ -35,7 +35,7 @@ val ==> = Property.==>
 infix ==>
 
 type unificationf = Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
-type unif_test_gen = Proof.context -> unificationf -> string -> term Gen_Term.gen -> Random.rand -> unit
+type unif_test_gen = Proof.context -> unificationf -> string -> term Gen_Types.gen -> Random.rand -> unit
 
 val free_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (1,0,0) 10) 5
 val var_gen = Gen_Term.term_fol (Gen_Term.def_sym_gen (0,1,0) 10) 5
