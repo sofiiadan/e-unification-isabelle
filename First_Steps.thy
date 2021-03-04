@@ -4,6 +4,8 @@ theory First_Steps
     "spec_check/src/Spec_Check"
 begin
 
+
+
 ML
 \<open>
 (* pretty-printing *)
@@ -106,43 +108,6 @@ ML_file \<open>First_Order_Unification.ML\<close>
 
 (* FOU test cases *)
 
-ML\<open>
-val no_eta_ctxt = Config.put eta_contract false @{context}
-fun testCase (ts as (t1,t2)) ctxt=
-  let val (env,thm) = Fou.first_order_unify_thm ctxt ts (Envir.empty 0)
-  in  pretty_envs ctxt env;
-      pwriteln (pretty_thm ctxt thm);
-      pwriteln (pretty_terms ctxt [Envir.norm_term env t1, Envir.norm_term env t2])
-  end
-    handle Fou.Unif (t1,t2) => let val _ = tracing "Unification failed at terms: " in pretty_terms ctxt [t1,t2] |> pwriteln end
-    | Fou.Occurs_Check t1 =>  let val _ = tracing "Unification failed due to occurs check of variable: " in  pretty_term ctxt t1 |> pwriteln end
-\<close>
-ML\<open>testCase (@{term_pat "?AVAR1001"},@{term_pat "?v1_2.0 ?v0_5"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "\<lambda>x. ?P x"},@{term_pat "\<lambda>x. t x"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "a"},@{term_pat "b"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "a"},@{term_pat "?X"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "?Y"},@{term_pat "?X"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "f a ?X"},@{term_pat "f a b"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "f a"},@{term_pat "g a"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "f ?X"},@{term_pat "f ?Y"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "f ?X"},@{term_pat "g ?Y"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "f (?X::'a) ?Y"},@{term_pat "f ?Y (?X::'a)"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "f (g ?X)"},@{term_pat "f ?Y"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y a"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "f (g ?X) ?X"},@{term_pat "f ?Y ?Y"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "?X"},@{term_pat "f ?X"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "P ?X ?X"},@{term_pat "P ?Z (f ?Z)"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "?X"},@{term_pat "\<lambda>x. f ?X"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "P (\<lambda>a b. Q b a)"},@{term_pat "?X ?Y"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "\<lambda>x. g x ?Z"},@{term_pat "\<lambda>u. ?F u"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "?X"},@{term_pat "?Y"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "?Y"},@{term_pat "?f ?X"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "?X::'a \<Rightarrow> ('i \<Rightarrow> 'j)"},@{term_pat "(\<lambda>x. f x) :: 'c \<Rightarrow> 'd"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "?X::'h \<Rightarrow> 'a"},@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "(\<lambda>a. ?g a)::('e \<Rightarrow>'f) \<Rightarrow> 'g"},@{term_pat "?X::'h \<Rightarrow> ('i \<Rightarrow> 'j)"}) no_eta_ctxt\<close>
-ML\<open>testCase (@{term_pat "?X"},@{term_pat "?X1"}) no_eta_ctxt\<close>
-
-
 (* implementing rule etc. *)
 ML\<open>
 (* FOU of the goal's ith subgoal with thm, returns NONE if non-unifiable or subgoal not existing *)
@@ -150,7 +115,7 @@ fun unifier_thm_goal ctxt goal thm i =
   let val _ = tracing ("Theorem: "^ (pretty_term ctxt (Thm.concl_of thm) |> Pretty.string_of) ^ "\nGoal: "^ (pretty_term ctxt ((Thm.prems_of goal |> flip nth (i-1) |> Logic.strip_imp_concl)) |> Pretty.string_of)) in
     SOME (Fou.first_order_unify ctxt
           (Thm.prems_of goal |> flip nth (i-1) |> Logic.strip_imp_concl, Thm.concl_of thm)
-           (Envir.empty (Int.max (Thm.maxidx_of thm,Thm.maxidx_of goal)))) end
+           (Envir.empty (Int.max (Thm.maxidx_of thm,Thm.maxidx_of goal))) |> fst) end
   handle Fou.Unif _  => NONE
        | Type.TUNIFY => NONE
        | Subscript   => NONE
@@ -361,29 +326,12 @@ lemma "(\<forall>x. f x) \<Longrightarrow> f x"
 lemma "a = b \<Longrightarrow> f a = f b"
   by (elim arg_cong)
 
-
 lemma "(\<not>G \<longrightarrow> \<not>F) \<longrightarrow> (F \<longrightarrow> G)"
   apply (rule impI)+
   apply (rule case_split[of G]) defer 
   apply (rule FalseE)
   apply (rule notE[of F])
   by (erule impE)
-
-(* HINTS *)
-thm Nat.mult_le_mono
-
-lemma "1\<le>a \<Longrightarrow> 1\<le>b \<Longrightarrow> 1*1 \<le> a * (b::nat)"
-  by (rule Nat.mult_le_mono)
-
-lemma x_zero:"X + 0 = (X::nat)"
-  by simp
-
-lemma test1: "X+0=X \<Longrightarrow> X = (X::nat)"
-  ..
-
-lemma "a = a"
-  ..
-
 
 (*  H I N T S  *)
 
@@ -440,13 +388,12 @@ lemma ADD_SUC :
   "N = Suc Q \<Longrightarrow> P = Q + M \<Longrightarrow> N + M = Suc P"
 by simp
 
-lemma ID_EQ:
-  "X \<equiv> Y \<Longrightarrow> id X \<equiv> Y"
-  by simp
 
 
-ML \<open>val hints = Fou.gen_hint_list @{context}
-\<close>
+ML \<open>val hints = Fou.gen_hint_list @{context}\<close>
+
+
+declare [[show_types = true]]
 declare  [[log_level=1000]]
 ML\<open>
 val no_eta_ctxt = Config.put eta_contract false @{context};
@@ -469,26 +416,7 @@ fun test_hunif (t1,t2) =
 \<close>
 ML_file \<open>Test.ML\<close>
 
-(* ging mit rekursiver hint unification *)
-ML\<open>
-test_hunif
-  (@{term_pat "3 ::nat"},
-   @{term_pat "Suc (Suc ?x) ::nat"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "id 5 ::nat"},
-   @{term_pat "Suc (Suc 5)"});\<close>
-ML\<open>
-test_hunif
-  (@{term_pat "r ((id 5) + (2 - Suc (id ?Y)) = Suc 4)::nat"},
-   @{term_pat "(id r) (5 = id (Suc 4))::nat"});\<close>
 
-(* Problem : consts sind nicht deklariert, term kann nicht zertifiziert werden *)
-ML\<open>
-val (t1,t2) = (Var (("v0_2", 0), TVar (("'a",0),[])),Const ("c0_0", TVar(("'a",0),[])));
-val context = fold Variable.declare_term [t1,t2] @{context};
-Test.unification context Fou.first_order_unify_thm (Envir.empty 0) (t1,t2)
-\<close>
 ML\<open>Gen_Term.term_fol (Gen_Term.def_sym_gen (1,1,0) 10) 5 10 (Random.new()) |> fst |> pretty_term @{context}\<close>
 
 end
