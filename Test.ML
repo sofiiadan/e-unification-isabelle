@@ -136,7 +136,7 @@ fun terms_unify ctxt unif envir ts =
   let val _ = unif ctxt ts envir
   in true end handle _ => false
 
-(*checks if terms can be unifiedby unif, throws exception if not*)
+(*checks if terms can be unified by unif, raises exception if not*)
 fun terms_unify_exn ctxt unif envir ts =
   let val _ = unif ctxt ts envir
   in true end
@@ -171,7 +171,7 @@ fun list_pos ctxt unif name l =
 
 fun list_neg ctxt unif name l = 
   Spec_Check.check_list (print_termtup ctxt) l name
-    (property (not o terms_unify_exn ctxt unif empty_env))
+    (property (not o terms_unify ctxt unif empty_env))
     ctxt
 
 fun single_pos ctxt unif name ts =
@@ -181,7 +181,7 @@ fun single_pos ctxt unif name ts =
 
 fun single_neg ctxt unif name ts =
   Spec_Check.check_list (print_termtup ctxt) [ts] name
-    (property (not o terms_unify_exn ctxt unif empty_env))
+    (property (not o terms_unify ctxt unif empty_env))
     ctxt
 
 fun test_termtup ctxt unif name prop gen =

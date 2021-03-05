@@ -149,7 +149,9 @@ ML\<open>single_pos @{context} hint_unif "Suc x = 4 with multiple matching hints
 
 (* recursive hint tests *)
 
-(* Suc (Suc 0) = 2 *)
+declare [[log_level=1000]]
+
+(*Suc (Suc 0) = 2*)
 ML\<open>single_neg @{context} hint_unif "Suc ?x = 3 without hint"
   (@{term_pat "Suc (Suc ?X) ::nat"},
    @{term_pat "2::nat"})\<close>
@@ -162,7 +164,6 @@ ML\<open>single_pos @{context} hint_unif "Suc ?x = 3 with hint"
    @{term_pat "2::nat"})\<close>
 
 
-declare[[log_level =1000]]
 ML\<open>
   single_pos @{context} hint_unif ""
     (@{term_pat "id 5 ::nat"},
