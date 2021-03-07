@@ -1,8 +1,10 @@
 theory UnificationTests
-imports Main "spec_check/src/Spec_Check" First_Steps
+imports
+  Main
+  First_Steps
 begin
 
-ML_file "Test.ML"
+ML_file \<open>Test.ML\<close>
 ML\<open>open Test\<close>
 
 ML\<open>val hint_unif = Fou.first_order_unify_h
