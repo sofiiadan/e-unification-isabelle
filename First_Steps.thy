@@ -1,7 +1,7 @@
 theory First_Steps
   imports
     Main
-    "spec_check/src/Spec_Check"
+    Spec_Check2.Spec_Check
 begin
 
 
@@ -22,7 +22,6 @@ fun pretty_thms ctxt thms =
   Pretty.block (Pretty.commas (map (pretty_thm ctxt) thms))
 fun pretty_thms_no_vars ctxt thms =
   Pretty.block (Pretty.commas (map (pretty_thms ctxt) thms))
-fun uncurry f (x, y) = f x y
 fun flip f x y = f y x
 fun flatten_tups [] = []
   | flatten_tups ((x,y)::xs) = x::y::flatten_tups xs
@@ -377,6 +376,5 @@ by simp
 lemma ADD_SUC :
   "N = Suc Q \<Longrightarrow> P = Q + M \<Longrightarrow> N + M = Suc P"
 by simp
-ML\<open>Gen_Term.term_fol (Gen_Term.def_sym_gen (1,1,0) 10) 5 10 (Random.new()) |> fst |> pretty_term @{context}\<close>
 
 end
