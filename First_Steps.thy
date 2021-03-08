@@ -333,17 +333,7 @@ lemma "(\<not>G \<longrightarrow> \<not>F) \<longrightarrow> (F \<longrightarrow
   apply (rule notE[of F])
   by (erule impE)
 
-(*  H I N T S  *)
-
-(* tactics for printing out current goal or subgoals, respectively, from cookbook *)
-ML\<open>
-fun my_print_tac ctxt thm =
-  let val _ = tracingP (pretty_thm ctxt thm)
-  in Seq.single thm end
-fun my_print_tac_prems ctxt thm =
-  let val _ = tracingP (pretty_terms ctxt (map Logic.strip_imp_concl (Thm.prems_of thm)))
-  in Seq.single thm end
-\<close>
+(*  Hints  *)
 
 named_theorems hints
 
@@ -387,36 +377,6 @@ by simp
 lemma ADD_SUC :
   "N = Suc Q \<Longrightarrow> P = Q + M \<Longrightarrow> N + M = Suc P"
 by simp
-
-
-
-ML \<open>val hints = Fou.gen_hint_list @{context}\<close>
-
-
-declare [[show_types = true]]
-declare  [[log_level=1000]]
-ML\<open>
-val no_eta_ctxt = Config.put eta_contract false @{context};
-fun test_hunif (t1,t2) =
-  let val ctxt = no_eta_ctxt
-      val _ = pretty_terms ctxt [t1,t2] |> pwriteln
-      val (sigma,thm) = Fou.first_order_unify_h ctxt (t1,t2) (Envir.empty 0)
-      val (t1',t2') = (Envir.norm_term sigma t1,Envir.norm_term sigma t2)
-      val _ = tracing "Unifying environment:"
-      val _ = pretty_env ctxt (Envir.term_env sigma)
-      val _ = pretty_tyenv ctxt (Envir.type_env sigma)
-      val _ = tracing "Unifying theorem:"
-      val _ = pretty_thm ctxt thm |> pwriteln
-      val _ = tracing "Instantiated terms:"
-      val _ = pwriteln (pretty_terms ctxt [t1',t2'])
-  in () end
-  handle Fou.Unif (tfail1,tfail2) => let val _ = tracing "Unification failed at terms: " in pretty_terms no_eta_ctxt [tfail1,tfail2] |> pwriteln end
-       | Fou.Occurs_Check tfail1 =>  let val _ = tracing "Unification failed due to occurs check at terms: " in pretty_terms no_eta_ctxt [tfail1] |> pwriteln end
-       (*| TUNIFY => let val _ = tracing "Type unification failed" in () end*)
-\<close>
-ML_file \<open>Test.ML\<close>
-
-
 ML\<open>Gen_Term.term_fol (Gen_Term.def_sym_gen (1,1,0) 10) 5 10 (Random.new()) |> fst |> pretty_term @{context}\<close>
 
 end
