@@ -50,7 +50,7 @@ ML\<open>test_group non_unif hint_unif "Free only" free_gen\<close>
 ML\<open>test_group non_unif_rev std_unif "Free only" free_gen\<close>
 ML\<open>test_group non_unif_rev hint_unif "Free only" free_gen\<close>
 
-(** unifiability-tests **)
+(** unifiability tests **)
 (* Unification of identical terms *)
 ML\<open>test_group identical_unif std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group identical_unif hint_unif "Free/Var" free_var_gen\<close>
@@ -63,7 +63,6 @@ ML\<open>test_group unif_var_term hint_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group unif_vars_replaced std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group unif_vars_replaced hint_unif "Free/Var" free_var_gen\<close>
 
-ML\<open>pretty_term @{context} (Var(("A",0),TVar(("'a",0),[])))\<close>
 (** manual tests with Var/Free and TVar/TFree **)
 (* should unify, using std_unif *)
 ML\<open>list_pos @{context} std_unif "Var/Free, TVar/TFree combinations unify"

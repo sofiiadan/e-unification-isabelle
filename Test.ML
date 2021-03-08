@@ -107,7 +107,7 @@ fun gen_term_typed ctxt tgen rand =
     val (t,r) = (tgen rand)
   in
     (Syntax.check_term (Proof_Context.set_mode Proof_Context.mode_schematic @{context}) t,r)
-    handle TYPE _ =>
+    handle _ =>
       let val _ =
         Log.debug ctxt tracing ("Generated term could not be properly typed: "^print_term ctxt t)
       in gen_term_typed ctxt tgen r end
