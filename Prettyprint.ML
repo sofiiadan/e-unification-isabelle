@@ -1,4 +1,4 @@
-signature PRETTYPRINT = 
+signature PRETTYPRINT =
 sig
 
 end
@@ -6,5 +6,5 @@ end
 structure Prettyprint : PRETTYPRINT =
 struct
 
-  
+
 end
