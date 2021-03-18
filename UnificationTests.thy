@@ -6,7 +6,6 @@ begin
 
 ML_file \<open>Test.ML\<close>
 ML\<open>open Test\<close>
-
 ML\<open>val hint_unif = Fou.first_order_unify_h
    val std_unif = Fou.first_order_unify\<close>
 

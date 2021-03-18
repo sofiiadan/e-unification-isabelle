@@ -13,32 +13,22 @@ val pwriteln = Pretty.writeln
 val pretty_term = Syntax.pretty_term
 fun pretty_terms ctxt trms =
   Pretty.block (Pretty.commas (map (pretty_term ctxt) trms))
-fun pretty_cterm ctxt ctrm = pretty_term ctxt (Thm.term_of ctrm)
-fun pretty_cterms ctxt ctrms =
-  Pretty.block (Pretty.commas (map (pretty_cterm ctxt) ctrms))
 fun pretty_thm ctxt thm = pretty_term ctxt (Thm.prop_of thm)
-fun no_vars ctxt = Config.put show_question_marks false ctxt
 fun pretty_thms ctxt thms =
   Pretty.block (Pretty.commas (map (pretty_thm ctxt) thms))
-fun pretty_thms_no_vars ctxt thms =
-  Pretty.block (Pretty.commas (map (pretty_thms ctxt) thms))
-fun flip f x y = f y x
-fun flatten_tups [] = []
-  | flatten_tups ((x,y)::xs) = x::y::flatten_tups xs
-val pStr = Pretty.string_of
+
 
 fun pretty_typ ctxt ty = Syntax.pretty_typ ctxt ty
 fun pretty_typs ctxt tys = Pretty.block (Pretty.commas (map (pretty_typ ctxt) tys))
-val tracingP = tracing o pStr
-val term_pat_setup = let
-val parser = Args.context -- Scan.lift Args.embedded_inner_syntax
-fun term_pat (ctxt, str) =
-  str |> Proof_Context.read_term_pattern ctxt
-      |> ML_Syntax.print_term
-      |> ML_Syntax.atomic
-in
-  ML_Antiquotation.inline @{binding "term_pat"} (parser >> term_pat)
-end
+val term_pat_setup =
+  let val parser = Args.context -- Scan.lift Args.embedded_inner_syntax
+      fun term_pat (ctxt, str) =
+        str |> Proof_Context.read_term_pattern ctxt
+            |> ML_Syntax.print_term
+            |> ML_Syntax.atomic
+  in
+    ML_Antiquotation.inline @{binding "term_pat"} (parser >> term_pat)
+  end
 
 fun pretty_helper aux env =
   env |> Vartab.dest
@@ -80,23 +70,13 @@ fun pretty_env_p ctxt env =
     val print = apply2 (pretty_term ctxt) 
   in pretty_helper_p (print o get_trms) env
 end
+
+fun flip f x y = f y x
 \<close>
 
 setup \<open>term_pat_setup\<close>
 
-ML\<open>
-fun pretty_envs ctxt env=
-  (pretty_tyenv ctxt (Envir.type_env env),
-  pretty_env ctxt (Envir.term_env env));
 
-fun pretty_ttups ctxt ts=
-  let fun pretty_tup (x,y) =
-        Pretty.block [Pretty.str "(",pretty_term ctxt x,Pretty.str ", ", pretty_term ctxt y,Pretty.str ")"]
-      fun ttups [] = Pretty.str "[]"
-        | ttups [x] = pretty_tup x 
-        | ttups (x::xs) = Pretty.block [pretty_tup x, Pretty.str ", ",ttups xs]
-  in Pretty.block [Pretty.str "[", ttups ts,Pretty.str "]"] end
-\<close>
 
 ML_file \<open>Log.ML\<close>
 
@@ -376,5 +356,22 @@ by simp
 lemma ADD_SUC :
   "N = Suc Q \<Longrightarrow> P = Q + M \<Longrightarrow> N + M = Suc P"
 by simp
+
+
+ML\<open>
+(*increases the indexes of Vars (keys) in tenv by i*)
+fun increase_indexes_tenv index tenv =
+  Vartab.fold
+    (fn ((s,i),t) => fn tenv' => Vartab.insert (op =) ((s,i+index),t) tenv')
+    tenv Vartab.empty;
+
+val env1 = Pattern.match @{theory} (@{term_pat "?X +?Y::nat"},@{term_pat "?A+?B::nat"}) (Vartab.empty,Vartab.empty)
+|> snd |> pretty_env @{context};
+
+val env2 = Pattern.match @{theory} (@{term_pat "?X +?Y::nat"},@{term_pat "?A+?B::nat"}) (Vartab.empty,Vartab.empty)
+|> snd |> increase_indexes_tenv 5 |> pretty_env @{context};
+
+\<close>
+
 
 end

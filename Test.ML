@@ -82,8 +82,8 @@ fun print_termtup_unif ctxt unif (t1,t2) =
       Pretty.block [Pretty.str "Unified terms: ", pretty_terms ctxt
         [Envir.norm_term env t1,Envir.norm_term env t2]]
     ]
-  end handle _ => Pretty.block [Pretty.str "Unification failed, terms: ", print_termtup ctxt
-    (t1,t2)]
+  end handle _ =>
+        Pretty.block [Pretty.str "Unification failed, terms: ", print_termtup ctxt (t1,t2)]
 
 val is_var = fn Var _ => true | _ => false
 
