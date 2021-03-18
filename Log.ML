@@ -1,4 +1,4 @@
-signature LOG = 
+signature LOG =
 sig
   type loglevel
   val OFF   : loglevel

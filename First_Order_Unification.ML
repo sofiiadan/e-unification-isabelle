@@ -1,13 +1,13 @@
 (* First Order Unification *)
-signature First_Order_Unification = 
+signature First_Order_Unification =
 sig
-  
+
   type hint = (term * term) * Envir.tenv * thm
-  
+
   exception Unif of term * term
   exception Occurs_Check of term
   exception Matching_Hints of ((term * term) * hint * exn) list * exn
-  
+
   val first_order_unify : Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
   val first_order_unify_h : Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
 
@@ -164,14 +164,14 @@ fun unif ctxt env =
         if Term.is_open t then raise Unif (Var(x,Tx),t)
          else if contains_var x t then raise Occurs_Check (Var(x,Tx)) else
           (case Envir.lookup env (x,Tx) of
-              NONE    => let val env' = ty_unify ctxt (fastype_of t,Tx) env in 
+              NONE    => let val env' = ty_unify ctxt (fastype_of t,Tx) env in
                           (Envir.update ((x,Envir.norm_type (Envir.type_env env') Tx),t) env',inst_refl ctxt t) end
             | SOME t' => if Envir.aeconv (t',t) then (env,inst_refl ctxt t) else unif ctxt env (t',t))
     | (t,Var(x,Tx)) =>
         if Term.is_open t then raise Unif (t,Var(x,Tx))
          else if contains_var x t then raise Occurs_Check (Var(x,Tx)) else
           (case Envir.lookup env (x,Tx) of
-              NONE    => let val env' = ty_unify ctxt (fastype_of t,Tx) env in 
+              NONE    => let val env' = ty_unify ctxt (fastype_of t,Tx) env in
                           (Envir.update ((x,Envir.norm_type (Envir.type_env env') Tx),t) env',inst_refl ctxt t) end
             | SOME t' => if Envir.aeconv (t',t) then (env,inst_refl ctxt t) else unif ctxt env (t,t'))
     | (Abs(_,T1,t1),Abs(_,T2,t2)) => unif ctxt (ty_unify ctxt (T1,T2) env) (t1,t2)
@@ -299,7 +299,7 @@ end handle _ => NONE
 
 (*first order unification with hints*)
 fun hint_unify hints ctxt (term1,term2) env =
-let 
+let
   (*assembles list of matching hints from list, drops first i hints*)
   fun apply_hints ctxt envir (t1,t2) i =
     map Option.valOf
@@ -402,7 +402,7 @@ fun print_matched_hint ctxt (t1,t2,thm) =
     ^ Pretty.string_of (pretty_term ctxt t1) ^ ", "
     ^ Pretty.string_of (pretty_term ctxt t2) ^ " matched hint: "
     ^ Pretty.string_of (pretty_thm ctxt thm)
-    
+
 
 fun print_matching_hints ctxt hs =
   let val _ = tracing "These hints matched but the resulting unification could not be solved:"
@@ -417,6 +417,6 @@ fun first_order_unify_h ctxt ts env =
     let val _ = Log.info ctxt (print_matching_hints ctxt) hs
     in raise exn
     end
-    
+
 
 end
