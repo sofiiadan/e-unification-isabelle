@@ -1,8 +1,8 @@
 signature TEST =
 sig
 
-  type unificationf = Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
-  type unif_test_gen = Proof.context -> unificationf -> string -> term Gen_Types.gen -> Random.rand
+  type unificationf = Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
+  type unif_test_gen = Context.generic -> unificationf -> string -> term Gen_Types.gen -> Random.rand
     -> Random.rand
 
   val free_gen : int -> term Gen_Types.gen
@@ -11,12 +11,14 @@ sig
 
   val test_group : unif_test_gen -> unificationf -> string -> (int -> term Gen_Types.gen) ->
     Random.rand
-  val list_pos : Proof.context -> unificationf -> string -> (term * term) list ->
+  val test_group_idxs : unif_test_gen -> unificationf -> int list -> string -> (int -> term Gen_Types.gen) ->
+    Random.rand
+  val list_pos : Context.generic -> unificationf -> string -> (term * term) list ->
     (term * term) Seq.seq
-  val list_neg : Proof.context -> unificationf -> string -> (term * term) list ->
+  val list_neg : Context.generic -> unificationf -> string -> (term * term) list ->
     (term * term) Seq.seq
-  val single_pos : Proof.context -> unificationf -> string -> (term * term) -> (term * term) Seq.seq
-  val single_neg : Proof.context -> unificationf -> string -> (term * term) -> (term * term) Seq.seq
+  val single_pos : Context.generic -> unificationf -> string -> (term * term) -> (term * term) Seq.seq
+  val single_neg : Context.generic -> unificationf -> string -> (term * term) -> (term * term) Seq.seq
 
   val symmetry : unif_test_gen
   val sigma_unifies : unif_test_gen
@@ -41,45 +43,53 @@ struct
 open Property
 infix ==>
 
-type unificationf = Proof.context -> term * term -> Envir.env -> (Envir.env * thm)
-type unif_test_gen = Proof.context -> unificationf -> string -> term Gen_Types.gen -> Random.rand ->
+type unificationf = Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
+type unif_test_gen = Context.generic -> unificationf -> string -> term Gen_Types.gen -> Random.rand ->
   Random.rand
 
 fun num_variants_gen nv = Generator.lift nv
-val index_gen = Gen_Int.nonneg 3
+val index_gen = Gen_Int.nonneg 10
 fun aterm_args_gen nv weights h _ =
   Gen_Base.zip (Gen_Term.aterm' (num_variants_gen nv) index_gen weights)
       (Gen_Int.nonneg (Int.max (0, 4-h)))
 
 fun free_gen nv = Gen_Term.term_tree (aterm_args_gen nv (0,1,0,0))
 fun var_gen nv = Gen_Term.term_tree (aterm_args_gen nv (0,0,1,0))
-fun free_var_gen nv = Gen_Term.term_tree (aterm_args_gen nv (0,1,2,0))
+fun free_var_gen nv = Gen_Term.term_tree (aterm_args_gen nv (0,3,1,0))
 
 val empty_env = Envir.empty 0
 
 fun test_with test unif gen_name gen n =
-  test (Context.the_local_context ()) unif (gen_name^", size "^Int.toString n) (gen n)
+  test (Context.the_generic_context ()) unif (gen_name^", max. index "^Int.toString n) (gen n)
 
 fun test_group test unif gen_name gen =
   fold
+    I
+    (map (test_with test unif gen_name gen) [1,5,10])
+    (Random.new ())
+
+fun test_group_idxs test unif idxs gen_name gen =
+  fold
     (fn test => test)
-    (map (test_with test unif gen_name gen) [0,1,2,5,10,15])
+    (map (test_with test unif gen_name gen) idxs)
     (Random.new ())
 
 fun print_term ctxt t =
   Pretty.string_of (pretty_term ctxt t)
 
-fun print_termtup ctxt (t1,t2) = pretty_terms ctxt [t1,t2]
+fun print_termtup ctxt (t1,t2) = pretty_terms (Context.proof_of ctxt) [t1,t2]
 
 fun print_termtup_unif ctxt unif (t1,t2) =
-  let val (env,thm) = unif ctxt (t1,t2) empty_env
+  let
+    val (env,thm) = unif ctxt (t1,t2) empty_env
+    val pctxt = Context.proof_of ctxt
   in
     Pretty.chunks [
       print_termtup ctxt (t1,t2),
-      Pretty.block [Pretty.str "Type Environment: ", pretty_tyenv_p ctxt (Envir.type_env env)],
-      Pretty.block [Pretty.str "Term Environment: ", pretty_env_p ctxt (Envir.term_env env)],
-      Pretty.block [Pretty.str "Theorem: ", pretty_thm ctxt thm],
-      Pretty.block [Pretty.str "Unified terms: ", pretty_terms ctxt
+      Pretty.block [Pretty.str "Type Environment: ", pretty_tyenv_p pctxt (Envir.type_env env)],
+      Pretty.block [Pretty.str "Term Environment: ", pretty_env_p pctxt (Envir.term_env env)],
+      Pretty.block [Pretty.str "Theorem: ", pretty_thm pctxt thm],
+      Pretty.block [Pretty.str "Unified terms: ", pretty_terms pctxt
         [Envir.norm_term env t1,Envir.norm_term env t2]]
     ]
   end handle _ =>
@@ -104,13 +114,14 @@ fun incr_idx n =
 (*generates a term and typechecks it*)
 fun gen_term_typed ctxt tgen rand =
   let
-    val (t,r) = (tgen rand)
+    val (t,r) = tgen rand
+    val pctxt = Context.proof_of ctxt
   in
     (Syntax.check_term
       (Proof_Context.set_mode Proof_Context.mode_schematic (Context.the_local_context ())) t,r)
     handle _ =>
       let val _ =
-        Log.debug ctxt tracing ("Generated term could not be properly typed: "^print_term ctxt t)
+        Log.debug pctxt tracing ("Generated term could not be properly typed: "^print_term pctxt t)
       in gen_term_typed ctxt tgen r end
   end
 
@@ -176,48 +187,64 @@ fun theorem_correct ctxt unif (t1,t2) =
     val (sigma,thm) = unif ctxt (t1,t2) empty_env
     val (t1',t2') = (Envir.norm_term sigma t1,Envir.norm_term sigma t2)
     val (lhs,rhs) = terms_from_thm thm
+    val pctxt = (Context.proof_of ctxt)
   in
-    (terms_match_size_eq ctxt (lhs,t1') andalso terms_match_size_eq ctxt (rhs,t2'))
-    orelse (terms_match_size_eq ctxt (lhs,t2') andalso terms_match_size_eq ctxt (rhs,t1'))
+    (terms_match_size_eq pctxt (lhs,t1') andalso terms_match_size_eq pctxt (rhs,t2'))
+    orelse (terms_match_size_eq pctxt (lhs,t2') andalso terms_match_size_eq pctxt (rhs,t1'))
   end handle _ => false
 
 fun list_pos ctxt unif name l =
   Spec_Check.check_list (print_termtup ctxt) l name
-    (prop (terms_unify_exn ctxt unif empty_env)) ctxt
+    (prop (terms_unify_exn ctxt unif empty_env)) (Context.proof_of ctxt)
 
 fun list_neg ctxt unif name l =
   Spec_Check.check_list (print_termtup ctxt) l name
     (prop (not o terms_unify ctxt unif empty_env))
-    ctxt
+    (Context.proof_of ctxt)
 
 fun single_pos ctxt unif name ts =
   Spec_Check.check_list (print_termtup ctxt) [ts] name
     (prop (terms_unify_exn ctxt unif empty_env))
-    ctxt
+    (Context.proof_of ctxt)
 
 fun single_neg ctxt unif name ts =
   Spec_Check.check_list (print_termtup ctxt) [ts] name
     (prop (not o terms_unify ctxt unif empty_env))
-    ctxt
+    (Context.proof_of ctxt)
 
 val shrink_termtup = Shrink.product Shrink.term Shrink.term
 
 fun test_termtup ctxt unif name prop gen =
   Spec_Check.check_shrink (print_termtup_unif ctxt unif) shrink_termtup
-    (gen_termtup ctxt gen) name prop ctxt
+    (gen_termtup ctxt gen) name prop (Context.proof_of ctxt)
 
 fun symmetry ctxt unif gen_name gen =
   let val terms_unify' = terms_unify ctxt unif empty_env
   in
     test_termtup ctxt unif ("Symmetry test: "^gen_name)
-      (terms_unify' ==> (fn (t1,t2) => terms_unify' (t2,t1)))
+      (prop
+        (fn (t1,t2) => (terms_unify' (t1,t2) andalso terms_unify' (t2,t1))
+         orelse (not (terms_unify' (t1,t2)) andalso not (terms_unify' (t2,t1)))))
       gen
   end
 
-fun noop ctxt unif gen_name gen =
-  Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup (gen_identical_termtup ctxt gen)
-    ("Envir unchanged when unifying identical terms: "^gen_name)
-    (prop (sigma_unchanged ctxt unif)) ctxt
+fun theorem_correctness ctxt unif gen_name gen =
+  Spec_Check.check_shrink (print_termtup_unif ctxt unif) shrink_termtup (gen_termtup ctxt gen)
+    ("Theorem correctness: "^gen_name)
+    (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
+    (Context.proof_of ctxt)
+
+fun theorem_correctness_var_term ctxt unif gen_name gen =
+  Spec_Check.check_shrink (print_termtup_unif ctxt unif) shrink_termtup (gen_var_termtup ctxt gen)
+    ("Theorem correctness unifying Var x with arbitrary term not containing x: "^gen_name)
+    (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
+    (Context.proof_of ctxt)
+
+fun theorem_correctness_vars_replaced ctxt unif gen_name gen =
+  Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup (gen_termtup_repl_vars ctxt gen)
+    ("Theorem correctness unifying t with t[Free/Var] (where all Vars are replaced by Frees): "^gen_name)
+    (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
+    (Context.proof_of ctxt)
 
 fun sigma_unifies ctxt unif gen_name =
   test_termtup ctxt unif
@@ -228,37 +255,13 @@ fun sigma_unifies_var_term ctxt unif gen_name gen =
   Spec_Check.check_shrink (print_termtup_unif ctxt unif) shrink_termtup (gen_var_termtup ctxt gen)
     ("Sigma unifies Var x with arbitrary term not containing x: "^gen_name)
     (terms_unify ctxt unif empty_env ==> sigma_unif ctxt unif)
-    ctxt
+    (Context.proof_of ctxt)
 
 fun sigma_unifies_vars_replaced ctxt unif gen_name gen =
   Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup (gen_termtup_repl_vars ctxt gen)
     ("Sigma unifies terms with replaced Vars: "^gen_name)
     (terms_unify ctxt unif empty_env ==> sigma_unif ctxt unif)
-    ctxt
-
-fun theorem_correctness ctxt unif gen_name gen =
-  Spec_Check.check_shrink (print_termtup_unif ctxt unif) shrink_termtup (gen_termtup ctxt gen)
-    ("Theorem correctness: "^gen_name)
-    (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
-    ctxt
-
-fun theorem_correctness_var_term ctxt unif gen_name gen =
-  Spec_Check.check_shrink (print_termtup_unif ctxt unif) shrink_termtup (gen_var_termtup ctxt gen)
-    ("Theorem correctness unifying Var x with arbitrary term not containing x: "^gen_name)
-    (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
-    ctxt
-
-fun theorem_correctness_vars_replaced ctxt unif gen_name gen =
-  Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup (gen_termtup_repl_vars ctxt gen)
-    ("Theorem correctness unifying t with t[Free/Var] (where all Vars are replaced by Frees): "^gen_name)
-    (terms_unify ctxt unif empty_env ==> theorem_correct ctxt unif)
-    ctxt
-
-fun occurs_check ctxt unif gen_name gen =
-  Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup (gen_occurs_clash_termtup ctxt gen)
-    ("Occurs check stops unification: "^gen_name)
-    (not o is_var o snd ==> not o terms_unify ctxt unif empty_env)
-    ctxt
+    (Context.proof_of ctxt)
 
 fun non_unif ctxt unif gen_name =
   test_termtup ctxt unif
@@ -275,20 +278,31 @@ fun identical_unif ctxt unif gen_name gen =
     (gen_identical_termtup ctxt gen)
     ("Unifiability of identical terms:"^gen_name)
     (prop (terms_unify ctxt unif empty_env))
-    ctxt
+    (Context.proof_of ctxt)
 
 fun unif_var_term ctxt unif gen_name gen =
   Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup
     (gen_var_termtup ctxt gen)
     ("Unifiability of Var x with arbitrary term not containing x: "^gen_name)
     (prop (terms_unify ctxt unif empty_env))
-    ctxt
+    (Context.proof_of ctxt)
 
 fun unif_vars_replaced ctxt unif gen_name gen =
   Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup
     (gen_termtup_repl_vars ctxt gen)
     ("Unifiability of t with t[Free/Var] (where all Vars are replaced by Frees): "^gen_name)
     (prop (terms_unify ctxt unif empty_env))
-    ctxt
+    (Context.proof_of ctxt)
+
+fun noop ctxt unif gen_name gen =
+  Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup (gen_identical_termtup ctxt gen)
+    ("Envir unchanged when unifying identical terms: "^gen_name)
+    (prop (sigma_unchanged ctxt unif)) (Context.proof_of ctxt)
+
+fun occurs_check ctxt unif gen_name gen =
+  Spec_Check.check_shrink (print_termtup ctxt) shrink_termtup (gen_occurs_clash_termtup ctxt gen)
+    ("Occurs check stops unification: "^gen_name)
+    (not o is_var o snd ==> not o terms_unify ctxt unif empty_env)
+    (Context.proof_of ctxt)
 
 end

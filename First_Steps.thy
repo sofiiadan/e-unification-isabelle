@@ -5,6 +5,27 @@ theory First_Steps
 begin
 
 
+ML\<open>
+  fun pretty_helper_p aux prems =
+  prems |> map aux
+        |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " := ", s2])
+        |> Pretty.enum "," "[" "]"
+
+fun pretty_prems ctxt env =
+  let
+    fun get_trms (v, (T, t)) = (Var (v, T), t)
+    val print = apply2 (Syntax.pretty_term ctxt) 
+  in pretty_helper_p (print o get_trms) env
+end
+
+fun pretty_hint ctxt (_,prems,thm) =
+  Pretty.block
+    [pretty_prems ctxt prems,
+     Pretty.str " \<Longrightarrow> ",
+     Syntax.pretty_term ctxt (Thm.concl_of thm)]
+\<close>
+
+
 
 ML
 \<open>
@@ -67,9 +88,10 @@ end
 fun pretty_env_p ctxt env =
   let
     fun get_trms (v, (T, t)) = (Var (v, T), t)
-    val print = apply2 (pretty_term ctxt) 
+    val print = apply2 (Syntax.pretty_term ctxt) 
   in pretty_helper_p (print o get_trms) env
 end
+
 
 fun flip f x y = f y x
 \<close>
@@ -83,19 +105,15 @@ ML_file \<open>Log.ML\<close>
 (*  F O U  *)
 ML_file \<open>First_Order_Unification.ML\<close>
 
-(*ML_file \<open>first_order_unification_code.ML\<close>*)
-
-(* FOU test cases *)
-
 (* implementing rule etc. *)
 ML\<open>
 (* FOU of the goal's ith subgoal with thm, returns NONE if non-unifiable or subgoal not existing *)
 fun unifier_thm_goal ctxt goal thm i =
   let val _ = tracing ("Theorem: "^ (pretty_term ctxt (Thm.concl_of thm) |> Pretty.string_of) ^ "\nGoal: "^ (pretty_term ctxt ((Thm.prems_of goal |> flip nth (i-1) |> Logic.strip_imp_concl)) |> Pretty.string_of)) in
-    SOME (Fou.first_order_unify ctxt
+    SOME (HUnif.first_order_unify (Context.the_generic_context ())
           (Thm.prems_of goal |> flip nth (i-1) |> Logic.strip_imp_concl, Thm.concl_of thm)
            (Envir.empty (Int.max (Thm.maxidx_of thm,Thm.maxidx_of goal))) |> fst) end
-  handle Fou.Unif _  => NONE
+  handle Unif  => NONE
        | Type.TUNIFY => NONE
        | Subscript   => NONE
 
@@ -131,12 +149,6 @@ fun unif_thm _ goal [] _ = ([],goal) |
 fun fo_resolve_tac ctxt rules i goal =
   let val (rules,goal) = unif_thm ctxt goal rules i
     in biresolve_tac ctxt (map (pair false) rules) i goal end
-
-(* CONTEXT missing for instantiation
-fun fo_resolve0_tac rules i goal =
-  let val unif_res = unif_thm @{context} goal rules i
-    in biresolve0_tac (map (pair false) (fst unif_res)) i (snd unif_res) end
-*)
 
 (* Resolution with elimination rules using FOU *)
 fun fo_eresolve_tac ctxt rules i goal = 
@@ -253,7 +265,6 @@ val _ = Theory.setup
 \<close>
 
 (* tests for FOU-tactics *)
-(* declaring the unification method *)
 declare [[unification = "first_order"]]
 
 lemma "A \<Longrightarrow> A \<or> B"
@@ -265,7 +276,7 @@ lemma "a = b \<Longrightarrow> f a = f (b::int)"
 
 definition x1_def:"x1 = (4::int)"
 
-theorem 413:"y = 4 \<Longrightarrow> y = 1 + (3::nat)" by simp
+theorem 413:"y = 4 \<Longrightarrow> y = 1 + 3" by simp
 theorem 4132: "y = 4 \<Longrightarrow> y = 1 + 3" by simp
 
 lemma "x1 = 1 + 3"
@@ -350,27 +361,222 @@ lemma ADD_ZERO:
 by simp
 
 lemma ZERO_ADD:
-  "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> X + Y \<equiv> Y"
+  "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> X + Y \<equiv> Z"
 by simp
 
-lemma ADD_SUC :
-  "N = Suc Q \<Longrightarrow> P = Q + M \<Longrightarrow> N + M = Suc P"
+lemma ADD_SUC:
+  "N \<equiv> Suc Q \<Longrightarrow> P \<equiv> Q + M \<Longrightarrow> N + M \<equiv> Suc P"
 by simp
+
+lemma Suc1:
+  "Y \<equiv> 2 \<Longrightarrow> X \<equiv> 1 \<Longrightarrow> Suc X \<equiv> Y" by linarith
+
+ML\<open>
+  val (_, make_thm_cterm) =
+  Context.>>>
+    (Context.map_theory_result (Thm.add_oracle (Binding.make ("skip", \<^here>), I)));
+fun make_thm thy (t1,t2) = make_thm_cterm (Thm.global_cterm_of thy (Const ("Pure.eq",type_of t1 --> type_of t2 --> propT) $ t1 $ t2))
+fun make_thm' thy t = make_thm_cterm (Thm.global_cterm_of thy t)\<close>
+
+declare[[eta_contract=false]]
+declare[[unify_trace_failure=true]]
+
+ML\<open>
+  val cong = Thm.axiom @{theory} "Pure.combination";
+  val theorem_ff = make_thm @{theory} (@{term_pat "f ::'a"},@{term_pat "f::'a"});
+  val theorem_00 = make_thm @{theory} (@{term_pat "0 ::nat"},@{term_pat "0::nat"});
+  val theorem_00_foralled = forall_intr_vars theorem_00;
+  val res = cong OF [theorem_ff,theorem_00]
+\<close>
+
+
+consts t1 ::"nat \<Rightarrow> bool"  t2 ::"nat \<Rightarrow> bool" 
+declare[[eta_contract=false]]
+declare[[unify_trace_failure=false]]
+ML\<open>
+   val t3 = @{term_pat "\<lambda>x. t1 x"};
+   val t4 = @{term_pat "\<lambda>y. t2 y"};
+   val b = @{term_pat "?x::nat"};
+   val abstr = Thm.axiom @{theory} "Pure.abstract_rule";
+   val thm = make_thm @{theory} (@{term_pat "f::nat\<Rightarrow>bool"} $ b,@{term_pat "g::nat\<Rightarrow>bool"} $ b);
+   val thm_forall = forall_intr_list [Thm.cterm_of @{context} @{term_pat "?x::nat"}] thm;
+   val _ = Seq.empty;
+
+   val thm_t1 = Thm.prems_of abstr |> hd;
+   val thm_t2 = Thm.prop_of thm_forall;
+   val env = Pattern.unify (Context.the_generic_context ()) (thm_t1,thm_t2) (Envir.empty 0);
+   val _ = env |>Envir.term_env |> pretty_env @{context};
+   val [th1,th2] = map (Envir.norm_term env) [thm_t1,thm_t2];
+
+   Thm.biresolution NONE false [(false,thm_forall)] 1 abstr |> Seq.list_of;
+   Thm.concl_of thm_forall;
+   Thm.prop_of thm_forall;
+   Thm.biresolution;
+   (*abstr OF [thm_foralled]*);
+
+   val abstr_inst = Drule.infer_instantiate @{context} [(("f",0),Thm.cterm_of @{context} @{term_pat "\<lambda>x. f x"}),(("g",0),Thm.cterm_of @{context} @{term_pat "\<lambda>x. g x"})] abstr
+   val of_thm = abstr_inst OF [thm]
+\<close>
+
+ML\<open>
+  fun unif_abstr ctxt thm var env =
+  let
+    val pctxt = Context.proof_of ctxt
+    val abstr_prem_t = Thm.prems_of abstr |> hd
+    val thm_forall = forall_intr_list [Thm.cterm_of pctxt var] thm
+    val thm_forall_t = Thm.concl_of thm_forall
+    val unif_env = Pattern.unify ctxt (abstr_prem_t,thm_forall_t) env
+    val _ = pretty_env pctxt (Envir.term_env unif_env)
+    val inst_list = map
+      (fn (idxn,(_,t)) => (idxn,Thm.cterm_of pctxt (Envir.norm_term unif_env t)))
+      (Envir.term_env unif_env |> Vartab.dest)
+    val abstr_inst = Drule.infer_instantiate pctxt inst_list abstr
+  in
+    abstr_inst OF [thm]
+  end;
+
+val x = unif_abstr (Context.the_generic_context ()) thm @{term_pat "?x::nat"} (Envir.empty 0)
+
+\<close>
+
+
+
+lemma H1: \<open>(\<And>x. f x \<equiv> g x) \<Longrightarrow> \<lambda>x. f x \<equiv> \<lambda>x. g x\<close>
+  by auto
+
+context
+  assumes H2: \<open>\<And>x. f x \<equiv> g x\<close>
+begin
 
 
 ML\<open>
-(*increases the indexes of Vars (keys) in tenv by i*)
-fun increase_indexes_tenv index tenv =
-  Vartab.fold
-    (fn ((s,i),t) => fn tenv' => Vartab.insert (op =) ((s,i+index),t) tenv')
-    tenv Vartab.empty;
+  Thm.concl_of @{thm H2};
+  Thm.concl_of thm_forall
+\<close>
 
-val env1 = Pattern.match @{theory} (@{term_pat "?X +?Y::nat"},@{term_pat "?A+?B::nat"}) (Vartab.empty,Vartab.empty)
-|> snd |> pretty_env @{context};
 
-val env2 = Pattern.match @{theory} (@{term_pat "?X +?Y::nat"},@{term_pat "?A+?B::nat"}) (Vartab.empty,Vartab.empty)
-|> snd |> increase_indexes_tenv 5 |> pretty_env @{context};
+ML \<open>abstr OF [thm_forall];
+    @{thm H1} OF @{thms H2}\<close>
+end
 
+ML\<open>
+  val (t1,t2) = (@{term_pat "(\<lambda>x. x 3) f"},@{term_pat "(f::nat\<Rightarrow>nat) 3"});
+  val _ = pretty_terms @{context} [t1,t2] |> pwriteln;
+  val env = Pattern.unify (Context.the_generic_context ()) (t1,t2) (Envir.empty 0);
+  val _ = pretty_env @{context} (Envir.term_env env)
+  val _ = pretty_tyenv @{context} (Envir.type_env env)
+\<close>
+(* HIGHER ORDER *)
+ML_file "pattern_copy.ML"
+declare[[eta_contract=false]]
+ML\<open>
+  val (env,thm) = Fou.first_order_unify_h (Context.the_generic_context ()) (@{term_pat "\<lambda>x. f x"},@{term_pat "\<lambda>x. f x"}) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln;
+  pretty_terms @{context} [@{term_pat "\<lambda>x. f x"},@{term_pat "\<lambda>x. f x"}]
+\<close>
+lemma [hints]:"X\<equiv>(0::nat) \<Longrightarrow> Y\<equiv>Z \<Longrightarrow> X + Y \<equiv>Z"
+by linarith
+
+lemma [hints]:"X\<equiv>1 \<Longrightarrow> Suc X \<equiv> 2"
+by linarith
+  
+ML\<open>
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (@{term_pat "0 + 2::nat"},@{term_pat "Suc 1::nat"}) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln
+\<close>
+
+ML\<open>
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (@{term_pat "\<lambda>x. r x ?Y"},@{term_pat "\<lambda>x. r x ?Y"}) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln
+\<close>
+
+ML\<open>
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (@{term_pat "\<lambda>x. (\<lambda>y. 0+(1::nat))"},@{term_pat "\<lambda>x. (\<lambda>y. (1::nat))"}) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln
+\<close>
+
+ML\<open>
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (@{term_pat "(\<lambda>x. (0+Z)+x::nat    )"},@{term_pat "(\<lambda>x. Z +x::nat)"}) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln
+\<close>
+
+
+
+(*Typen in ctxt speichern/binders an try_hints übergeben*)
+ML\<open>
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (@{term_pat "\<lambda>x. (\<lambda>x. 0+x::nat)"},@{term_pat "\<lambda>x. (\<lambda>x. x::nat)"}) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln
+\<close>
+
+ML\<open>
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (@{term_pat "\<lambda>x. \<lambda>y. (x::nat)"},@{term_pat "\<lambda>x. \<lambda>y. x"}) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln;
+\<close>
+
+
+consts
+  A :: "(nat \<Rightarrow> nat) \<times> nat \<Rightarrow> nat" 
+  B :: "nat \<times> nat \<Rightarrow> nat"
+  C :: "nat"
+  f :: "nat \<Rightarrow> nat"
+
+
+ML\<open>
+  val (t1,t2) = (@{term_pat "A (\<lambda>u. B (?x,u),C)"},@{term_pat "A (\<lambda>v. B (?y,v),C)"});
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (t1,t2) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln
+\<close>
+
+ML\<open>
+  val (t1,t2) = (@{term_pat "\<lambda>u. B (?x,u)"},@{term_pat "\<lambda>v. B (?y,v)"});
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (t1,t2) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln
+\<close>
+
+
+
+
+datatype Expr = EVar int | EOp Expr Expr
+
+fun eval_expr :: "Expr \<Rightarrow> int" where
+  "eval_expr (EVar i) = i"
+| "eval_expr (EOp ex1 ex2) = (eval_expr ex1) + (eval_expr ex2)"
+
+fun simpl :: "Expr \<Rightarrow> Expr" where
+  "simpl (EVar i) = EVar i"
+| "simpl (EOp ex1 ex2) = EVar (eval_expr (simpl ex1) + eval_expr (simpl ex2))"
+
+lemma soundness :
+  "P (eval_expr (simpl x)) \<Longrightarrow> P (eval_expr x)"
+sorry
+
+lemma h_base [hints]: "a \<equiv> EVar i \<Longrightarrow> eval_expr a \<equiv> i"
+by simp
+
+lemma h_add [hints]: "a \<equiv> EOp x y \<Longrightarrow> m \<equiv> eval_expr x \<Longrightarrow> n \<equiv> eval_expr y \<Longrightarrow> eval_expr a \<equiv> m + n"
+by simp
+
+ML\<open>
+  val t1 = @{term_pat "eval_expr ?y"};
+  val t2 = @{term_pat "a + (b + c) ::int"}
+\<close>
+
+declare [[log_level=600]]
+
+ML\<open>
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (t1,t2) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln;
+  pretty_terms @{context} [Envir.norm_term env t1,Envir.norm_term env t2];
 \<close>
 
 
