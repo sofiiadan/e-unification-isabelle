@@ -470,7 +470,7 @@ ML\<open>
 ML_file "pattern_copy.ML"
 declare[[eta_contract=false]]
 ML\<open>
-  val (env,thm) = Fou.first_order_unify_h (Context.the_generic_context ()) (@{term_pat "\<lambda>x. f x"},@{term_pat "\<lambda>x. f x"}) (Envir.empty 0);
+  val (env,thm) = HUnif.first_order_unify_h (Context.the_generic_context ()) (@{term_pat "\<lambda>x. f x"},@{term_pat "\<lambda>x. f x"}) (Envir.empty 0);
   pretty_env @{context} (Envir.term_env env);
   pretty_thm @{context} thm |> pwriteln;
   pretty_terms @{context} [@{term_pat "\<lambda>x. f x"},@{term_pat "\<lambda>x. f x"}]
@@ -579,5 +579,11 @@ ML\<open>
   pretty_terms @{context} [Envir.norm_term env t1,Envir.norm_term env t2];
 \<close>
 
-
+ML\<open>
+  val (t1,t2) = (@{term_pat "(a::nat) ^ 3"},@{term_pat "(0+(a::nat))^3"});
+  val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (t1,t2) (Envir.empty 0);
+  pretty_env @{context} (Envir.term_env env);
+  pretty_thm @{context} thm |> pwriteln;
+  pretty_terms @{context} [Envir.norm_term env t1,Envir.norm_term env t2];
+\<close>
 end

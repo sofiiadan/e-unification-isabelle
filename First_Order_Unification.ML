@@ -48,6 +48,8 @@ fun pretty_hint ctxt (_,prems,thm) =
 
 fun tracing_hint ctxt = (tracing o Pretty.string_of o pretty_hint ctxt)
 
+fun tracing_str_hint ctxt str h = tracing (str ^ (Pretty.string_of (pretty_hint ctxt h)))
+
 fun print_matched_hint ctxt (t1,t2,thm) =
   "Terms "
     ^ Pretty.string_of (pretty_term ctxt t1) ^ ", "
@@ -234,7 +236,8 @@ fun try_hint ctxt unif
   let
     val pctxt = Context.proof_of ctxt
 
-    val _ = Log.debug pctxt tracing "Trying hint"
+    val _ = Log.debug pctxt (tracing_str_hint pctxt "Trying hint: ") hint
+
     (*increase indeces in hints to avoid naming conflicts*)
     val (h1,h2) =
       (incr_idx (maxidx+1) h1_raw,incr_idx (maxidx+1) h2_raw)
@@ -254,6 +257,8 @@ fun try_hint ctxt unif
     val match_envir = idx_envs_to_envir maxidx_new match_envs
     val (match_tyenv,match_tenv) = envir_to_envs match_envir
     val hint_thm_matched = inf_instantiate match_envir hint_thm
+
+    val _ = Log.debug pctxt tracing "Hint matches, now unifying hint premises..."
 
     (*unify each hint premise, returning an (Envir,thm) list*)
     fun prem_foldfun (i_n,(typ,term)) envir_thms =
@@ -277,8 +282,8 @@ fun try_hint ctxt unif
     val thm_return =
       (if flip then flip_thm else I) (hd prem_thms_instd OF (tl prem_thms_instd))
     val (envir_return,_) = hd prem_envir_thms
-    val _ = Log.debug pctxt tracing "Theorem resulting from hint:"
-    val _ = Log.debug pctxt (tracing o Pretty.string_of o pretty_thm pctxt) thm_return
+    val _ = Log.debug pctxt (fn thm =>
+      tracing ("All premises unified, resulting theorem: "^Pretty.string_of (pretty_thm pctxt thm))) thm_return
   in
     SOME (envir_return,thm_return)
   end
@@ -286,13 +291,12 @@ fun try_hint ctxt unif
       Pattern.MATCH =>  
         let
           val pctxt = Context.proof_of ctxt
-          val _ = Log.debug pctxt tracing "Hint did not match:"
-          val _ = Log.debug pctxt (tracing_hint pctxt) hint
+          val _ = Log.debug pctxt tracing "Hint does not match"
         in NONE end
     | _ =>
         let
           val pctxt = Context.proof_of ctxt
-          val _ = Log.debug pctxt tracing "Hint matched but could not unify:"
+          val _ = Log.debug pctxt tracing "Hint matches but cannot unify:"
           val _ = Log.debug pctxt (tracing_hint pctxt) hint
         in NONE end
 
@@ -300,8 +304,8 @@ fun try_hint ctxt unif
 fun try_hints ctxt unif envir (t1,t2) =
   let
     val pctxt = Context.proof_of ctxt
-    val _ = Log.debug pctxt tracing "Trying hints for:"
-    val _ = Log.debug pctxt (tracing o Pretty.string_of o pretty_terms pctxt) [t1,t2]
+    val _ = Log.debug pctxt (fn ts =>
+      tracing ("Trying hints for subterms: "^Pretty.string_of (pretty_terms pctxt ts))) [t1,t2]
   in
   (map Option.valOf
     o filter Option.isSome
