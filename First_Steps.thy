@@ -559,10 +559,13 @@ lemma soundness :
   "P (eval_expr (simpl x)) \<Longrightarrow> P (eval_expr x)"
 sorry
 
-lemma h_base [hints]: "a \<equiv> EVar i \<Longrightarrow> eval_expr a \<equiv> i"
+lemma "3 + 4 \<equiv> (4::int) + 3"
+by linarith
+
+lemma h_base : "a \<equiv> EVar i \<Longrightarrow> eval_expr a \<equiv> i"
 by simp
 
-lemma h_add [hints]: "a \<equiv> EOp x y \<Longrightarrow> m \<equiv> eval_expr x \<Longrightarrow> n \<equiv> eval_expr y \<Longrightarrow> eval_expr a \<equiv> m + n"
+lemma h_add : "a \<equiv> EOp x y \<Longrightarrow> m \<equiv> eval_expr x \<Longrightarrow> n \<equiv> eval_expr y \<Longrightarrow> eval_expr a \<equiv> m + n"
 by simp
 
 ML\<open>
@@ -580,7 +583,7 @@ ML\<open>
 \<close>
 
 ML\<open>
-  val (t1,t2) = (@{term_pat "(a::nat) ^ 3"},@{term_pat "(0+(a::nat))^3"});
+  val (t1,t2) = (@{term_pat "(a::nat) ^ 3"},@{term_pat "(0+(?x::nat))^3"});
   val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (t1,t2) (Envir.empty 0);
   pretty_env @{context} (Envir.term_env env);
   pretty_thm @{context} thm |> pwriteln;

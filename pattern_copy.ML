@@ -341,7 +341,7 @@ and cases hints context (binders,bvars,env,(s,t)) = (case (strip_comb s,strip_co
       | ((Bound i,_),(Free(f,_),_))    => (clashB context binders i f; raise Unif))
   handle exn =>
     let 
-      val hint_results = HUnif.try_hints context h_unify env (s,t) hints
+      val hint_results = HUnif.try_hints context Pattern.match h_unify env (s,t) hints
     in
       if null hint_results then
       raise exn else hd hint_results

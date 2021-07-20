@@ -4,14 +4,15 @@ sig
 
   type hint = (term * term) * (indexname * (typ * term)) list * thm
   type unifT = Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
-  
+  type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * Envir.tenv
+
   exception Unif of term * term
   exception Occurs_Check of term
   exception Matching_Hints of ((term * term) * hint * exn) list * exn
 
   val gen_hint_list : Proof.context -> hint list
 
-  val try_hints : Context.generic -> unifT -> Envir.env -> (term * term) -> hint list -> (Envir.env * thm) list
+  val try_hints : Context.generic -> matchT -> unifT -> Envir.env -> (term * term) -> hint list -> (Envir.env * thm) list
   val first_order_unify : Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
   val first_order_unify_h : Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
 
@@ -22,10 +23,8 @@ struct
 
 type hint = (term * term) * (indexname * (typ * term)) list * thm
 type unifT = Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
-(*
-datatype unif_option = ENV of Envir.env * thm | MATCH of (term * term) * hint * exn
-val is_env = fn ENV _ => true | _ => false
-*)
+type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * Envir.tenv
+
 exception Unif of term * term
 exception Occurs_Check of term
 exception Matching_Hints of ((term * term) * hint * exn) list * exn
@@ -230,7 +229,7 @@ fun first_order_unify ctxt (term1,term2) env =
   Vars in hint are renamed to avoid naming conflicts during matching,
   returns SOME (Envir,thm) if successfull,
   unifies resulting unification problems using unif*)
-fun try_hint ctxt unif
+fun try_hint ctxt match unif
   (Envir.Envir {maxidx,tenv,tyenv}) (t1,t2)
   (hint as ((h1_raw,h2_raw),hint_prems_raw,hint_thm_raw)) =
   let
@@ -249,7 +248,7 @@ fun try_hint ctxt unif
       Thm.incr_indexes (maxidx+1) hint_thm_raw
 
     (*match hint with unification pair, set flip if hint matches flipped*)
-    val pmatch = Pattern.match (Context.theory_of ctxt)
+    val pmatch = match (Context.theory_of ctxt)
     fun inf_instantiate env thm = infer_instantiate pctxt (envir_to_ct_map pctxt env) thm
     val unif_envs = (tyenv,tenv)
     val (match_envs,flip) = ((pmatch (h2,t2) (pmatch (h1,t1) unif_envs),false)
@@ -261,10 +260,10 @@ fun try_hint ctxt unif
     val _ = Log.debug pctxt tracing "Hint matches, now unifying hint premises..."
 
     (*unify each hint premise, returning an (Envir,thm) list*)
-    fun prem_foldfun (i_n,(typ,term)) envir_thms =
+    fun prem_foldfun (v,(Tv,term)) envir_thms =
       let val (envir,_) = hd envir_thms in
         unif ctxt
-          (Envir.lookup match_envir (i_n,typ) |> Option.valOf,
+          (Envir.lookup match_envir (v,Tv) |> Option.valOf,
            Envir.norm_term match_envir term) envir
         :: envir_thms
       end
@@ -301,7 +300,7 @@ fun try_hint ctxt unif
         in NONE end
 
 (*try to apply every hint from the hint list*)
-fun try_hints ctxt unif envir (t1,t2) =
+fun try_hints ctxt match unif envir (t1,t2) =
   let
     val pctxt = Context.proof_of ctxt
     val _ = Log.debug pctxt (fn ts =>
@@ -309,7 +308,7 @@ fun try_hints ctxt unif envir (t1,t2) =
   in
   (map Option.valOf
     o filter Option.isSome
-    o map (try_hint ctxt unif envir (t1,t2)))
+    o map (try_hint ctxt match unif envir (t1,t2)))
   end
 
 (*first order unification with hints*)
@@ -383,7 +382,7 @@ let
     | _ => raise Pattern.Unif)
    handle exn =>
      let
-       val hint_match_list = (try_hints ctxt first_order_unify_h envir (t1,t2) hints)
+       val hint_match_list = (try_hints ctxt Pattern.match first_order_unify_h envir (t1,t2) hints)
      in
        if null hint_match_list then
        raise exn else hd hint_match_list end
