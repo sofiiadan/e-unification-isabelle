@@ -96,6 +96,7 @@ fun lookup_var bvars i =
 
 val incr_bvars = map (fn (i,var)=>(i+1,var))
 
+(*create new Var of type typ with idx=maxidx+1 representing a bound variable; add it to bvars*)
 fun add_bvar typ env bvars = 
   let val bvar = make_bvar (Envir.maxidx_of env+1) typ env
   in (bvar,(0,bvar)::(incr_bvars bvars)) end

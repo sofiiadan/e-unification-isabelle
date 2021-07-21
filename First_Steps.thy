@@ -562,10 +562,10 @@ sorry
 lemma "3 + 4 \<equiv> (4::int) + 3"
 by linarith
 
-lemma h_base : "a \<equiv> EVar i \<Longrightarrow> eval_expr a \<equiv> i"
+lemma h_base [hints]: "a \<equiv> EVar i \<Longrightarrow> eval_expr a \<equiv> i"
 by simp
 
-lemma h_add : "a \<equiv> EOp x y \<Longrightarrow> m \<equiv> eval_expr x \<Longrightarrow> n \<equiv> eval_expr y \<Longrightarrow> eval_expr a \<equiv> m + n"
+lemma h_add [hints]: "a \<equiv> EOp x y \<Longrightarrow> m \<equiv> eval_expr x \<Longrightarrow> n \<equiv> eval_expr y \<Longrightarrow> eval_expr a \<equiv> m + n"
 by simp
 
 ML\<open>
@@ -589,4 +589,9 @@ ML\<open>
   pretty_thm @{context} thm |> pwriteln;
   pretty_terms @{context} [Envir.norm_term env t1,Envir.norm_term env t2];
 \<close>
+
+ML\<open>
+  Unify.unifiers
+\<close>
+
 end
