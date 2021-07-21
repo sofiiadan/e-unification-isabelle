@@ -8,7 +8,6 @@ sig
 
   exception Unif of term * term
   exception Occurs_Check of term
-  exception Matching_Hints of ((term * term) * hint * exn) list * exn
 
   val gen_hint_list : Proof.context -> hint list
 
@@ -27,7 +26,6 @@ type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * E
 
 exception Unif of term * term
 exception Occurs_Check of term
-exception Matching_Hints of ((term * term) * hint * exn) list * exn
 
 fun pretty_helper_p aux prems =
   prems |> map aux
@@ -400,10 +398,6 @@ end
 and
 first_order_unify_h ctxt =
   hint_unify (gen_hint_list (Context.proof_of ctxt)) ctxt
-  handle Matching_Hints (hs,exn) =>
-    let val _ = Log.info (Context.proof_of ctxt) (print_matching_hints (Context.proof_of ctxt)) hs
-    in raise exn
-    end
 
 
 

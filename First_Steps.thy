@@ -562,11 +562,12 @@ sorry
 lemma "3 + 4 \<equiv> (4::int) + 3"
 by linarith
 
+
 lemma h_base [hints]: "a \<equiv> EVar i \<Longrightarrow> eval_expr a \<equiv> i"
 by simp
-
 lemma h_add [hints]: "a \<equiv> EOp x y \<Longrightarrow> m \<equiv> eval_expr x \<Longrightarrow> n \<equiv> eval_expr y \<Longrightarrow> eval_expr a \<equiv> m + n"
 by simp
+
 
 ML\<open>
   val t1 = @{term_pat "eval_expr ?y"};
@@ -591,7 +592,8 @@ ML\<open>
 \<close>
 
 ML\<open>
-  Unify.unifiers
+  Unify.unifiers;
+  Thm.reflexive (Thm.cterm_of @{context} @{term_pat "0+3::nat"});
 \<close>
 
 end
