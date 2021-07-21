@@ -96,7 +96,7 @@ fun lookup_var bvars i =
 
 val incr_bvars = map (fn (i,var)=>(i+1,var))
 
-fun add_bvar typ env bvars = 
+fun add_bvar typ env bvars =
   let val bvar = make_bvar (Envir.maxidx_of env+1) typ env
   in (bvar,(0,bvar)::(incr_bvars bvars)) end
 
@@ -340,7 +340,7 @@ and cases hints context (binders,bvars,env,(s,t)) = (case (strip_comb s,strip_co
       | ((Bound i,_),(Const(c,_),_))   => (clashB context binders i c; raise Unif)
       | ((Bound i,_),(Free(f,_),_))    => (clashB context binders i f; raise Unif))
   handle exn =>
-    let 
+    let
       val hint_results = HUnif.try_hints context Pattern.match h_unify env (s,t) hints
     in
       if null hint_results then

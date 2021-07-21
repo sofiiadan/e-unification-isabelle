@@ -5,28 +5,6 @@ theory First_Steps
 begin
 
 
-ML\<open>
-  fun pretty_helper_p aux prems =
-  prems |> map aux
-        |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " := ", s2])
-        |> Pretty.enum "," "[" "]"
-
-fun pretty_prems ctxt env =
-  let
-    fun get_trms (v, (T, t)) = (Var (v, T), t)
-    val print = apply2 (Syntax.pretty_term ctxt) 
-  in pretty_helper_p (print o get_trms) env
-end
-
-fun pretty_hint ctxt (_,prems,thm) =
-  Pretty.block
-    [pretty_prems ctxt prems,
-     Pretty.str " \<Longrightarrow> ",
-     Syntax.pretty_term ctxt (Thm.concl_of thm)]
-\<close>
-
-
-
 ML
 \<open>
 (* pretty-printing *)
@@ -81,14 +59,14 @@ end
 fun pretty_env ctxt env =
   let
     fun get_trms (v, (T, t)) = (Var (v, T), t)
-    val print = apply2 (pretty_term ctxt) 
+    val print = apply2 (pretty_term ctxt)
   in pretty_helper (print o get_trms) env
 end
 
 fun pretty_env_p ctxt env =
   let
     fun get_trms (v, (T, t)) = (Var (v, T), t)
-    val print = apply2 (Syntax.pretty_term ctxt) 
+    val print = apply2 (Syntax.pretty_term ctxt)
   in pretty_helper_p (print o get_trms) env
 end
 
@@ -99,8 +77,8 @@ fun flip f x y = f y x
 setup \<open>term_pat_setup\<close>
 
 
-
 ML_file \<open>Log.ML\<close>
+ML_file \<open>Utils.ML\<close>
 
 (*  F O U  *)
 ML_file \<open>First_Order_Unification.ML\<close>
@@ -151,12 +129,12 @@ fun fo_resolve_tac ctxt rules i goal =
     in biresolve_tac ctxt (map (pair false) rules) i goal end
 
 (* Resolution with elimination rules using FOU *)
-fun fo_eresolve_tac ctxt rules i goal = 
+fun fo_eresolve_tac ctxt rules i goal =
   let val (rules,goal) = unif_thm ctxt goal rules i
     in biresolve_tac ctxt (map (pair true) rules) i goal end
 
 (* Forward tactic using FOU *)
-fun fo_forward_tac ctxt rules = 
+fun fo_forward_tac ctxt rules =
   fo_resolve_tac ctxt (map make_elim rules) THEN' assume_tac ctxt
 
 (* Resolution with deletion of assumption using FOU *)
@@ -318,7 +296,7 @@ lemma "a = b \<Longrightarrow> f a = f b"
 
 lemma "(\<not>G \<longrightarrow> \<not>F) \<longrightarrow> (F \<longrightarrow> G)"
   apply (rule impI)+
-  apply (rule case_split[of G]) defer 
+  apply (rule case_split[of G]) defer
   apply (rule FalseE)
   apply (rule notE[of F])
   by (erule impE)
@@ -390,7 +368,7 @@ ML\<open>
 \<close>
 
 
-consts t1 ::"nat \<Rightarrow> bool"  t2 ::"nat \<Rightarrow> bool" 
+consts t1 ::"nat \<Rightarrow> bool"  t2 ::"nat \<Rightarrow> bool"
 declare[[eta_contract=false]]
 declare[[unify_trace_failure=false]]
 ML\<open>
@@ -480,7 +458,7 @@ by linarith
 
 lemma [hints]:"X\<equiv>1 \<Longrightarrow> Suc X \<equiv> 2"
 by linarith
-  
+
 ML\<open>
   val (env,thm) = PatternH.h_unify (Context.the_generic_context ()) (@{term_pat "0 + 2::nat"},@{term_pat "Suc 1::nat"}) (Envir.empty 0);
   pretty_env @{context} (Envir.term_env env);
@@ -522,7 +500,7 @@ ML\<open>
 
 
 consts
-  A :: "(nat \<Rightarrow> nat) \<times> nat \<Rightarrow> nat" 
+  A :: "(nat \<Rightarrow> nat) \<times> nat \<Rightarrow> nat"
   B :: "nat \<times> nat \<Rightarrow> nat"
   C :: "nat"
   f :: "nat \<Rightarrow> nat"
