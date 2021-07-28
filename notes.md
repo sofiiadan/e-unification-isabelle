@@ -1,63 +1,55 @@
-## TODOs (Kevin)
-- Fragen, ob man die unification Funktion in den Context speichern soll
-- declare mit Variables aus ML
+## Kevins TOODs
+1. Unification Funktion in den Context speichern
 
 ## Tasks
 
-1. Rekursive Strategie mit Backtracking:
-    - Offensichtliche Probleme
-    - Beispiele, wo es ein Problem gibt
-    - Implementierungsueberlegungen
-7. Wie kann man Funktionen, die eine Liste von Moeglichkeiten erzeugen, in eine Taktik auslagern
-8. Statt index eine Funktion mitreichen in den Taktiken
-  - Kevin fragt zuerst, ob wir das so machen sollen
-9. Stepwise hints anwenden und mit user kommunizieren
+1. Thesis writing
+2. Hint Unification Example #2 (Reification)
+3. Modularisieren
+  - First_Steps killen (Tests nach HO tests)
+  - alle unifier werden eine Instanz aus der generischen Funktion, die eine try_hints Funktion und Pattern matcher als Parameter erwartet
+4. Beispiel, warum lineare Ordnung der Praemissen wichtig ist
+
 10. Named theorems: Reihenfolge umdrehen
-11. Wo koennte man Unification brauchen? -> …
+7. Taktik erstellen
+9. Stepwise hints anwenden und mit user kommunizieren
 
+## Writing
 
-## Tests
+1. Introduction
+    - Motivation
+    - Outline
+2. Preliminaries
+    - Lambda Calculus with simple types
+    - Unification
+3. Unification Hints
+4. Implementation
+    - HO-Pattern Matcher 
+    - Pure
+    - Was denkst du, muss derjenige, der es gerne erweitern will, wissen?
+    - Debugging
+5. Applications
+  - simple examples with recursion
+  - simple reification
+  - more complex reification possible (cf paper)
+  - canonical instances
+  - typeclasses
+  - pullbacks
+  - non-uniform coercions
+6. Future & Related Work
+    - What's missing?
 
-#DONE
-
-1. Symmetrie
-2. 2. Environment unverändert bei identischen Termen
-3. Ergebnisenvironment-Korrektheit: t1\sigma = t2\sigma
-4. 4.Ergebnistheorem-Korrektheit
-    Nicht-unifizierbare Terme:
-    Occurs-Check
-    Var-freie, ungleiche Terme
-    Unifizierbare Terme:
-    Identische Terme
-    Var/beliebiger Term
-    Term t mit t allen Vars durch Frees ersetzt
-    Explizite Tests mit Var vs Free und TVar vs TFree
-    Explizite Tests mit verschiedenen Free/TFree-Symbolen, die nicht unifizieren
-    Tests, die zunaechst failen, dann hint hinzufuegen und dann klappen
-    Tests mit mehreren anwendbaren hints, aber nur einer fuehrt zum Erfolg (auch wenn der hint frueher hinzugefuegt)
-
-
-# TODO Tests mit rekursiver Unification
-1. unification hints
-  - Prämissenordnung = Lösungsordnung testen
-2. Rekursiv Hints anwenden
-3. Tests mit rekursiven Hints
-  - Mehrere Hints notwendig, um zu unifizieren.
-
-## Done
-1. Idx anpassen mit `Thm.incr_indexes`
-2. Refaktoring, modulare Funktionen
-3. Reflection proofs dischargen
-4. Eta contraction beim Einfuegen und bei Aufruf zweier Terme
-5. Pattern Matching -> Unification passt fuer den First-order unifier von Paul
-6. Eta contraction beim Einfuegen
-7. Validitaetscheck: Kernel unifier funktioniert auch
-8. Testframework angeschaut
-9. Basic Logger bauen
-
-## Features for the Future
-- Termindexing fuer die Hints
-
-## Themennamen
-- Unifikation Höherer Ordnung mit Hinweisen in Isabelle
-- Higher-Order Unification with Hints in Isabelle
+2.3 Isabelle: user experience aktuell ==> motivation fuer unification hints 
+3. Type classes beispiel. Reification auf Chapter 5 verweisen. Non-uniform coercions paper zitieren
+4.1 Hint Unif. Function with Parameters (both 
+unifier functions); dann first-order unifier (Beispiele), dann first-order mit HO matcher fuer hints (Beispiele); dann higher-order pattern matcher (Beispiele); TODO future: higher-order full unification
+4.1 Theorem Sequenze in Zukunft waere besser
+4.2. Explain why pattern matcher;
+4. Theorem bauen; Komplikationen falls es welche gab oder wenn nicht, warum es einfach war;
+4. Theoreme zusammenbauen (rechts nach links da goals von links nach rechts geloest werden)
+4.2 Highlight that bound variables do not have an associated type and current implementation does not work in those cases
+4.3 Execution Traces
+  - Reihenfolge Beispiel wichtig
+5. Simple examples for unification problems (tagging, calling the function)
+5.1 Simple reification example
+6. Related Work: Implementierungen. zb Matita, Coq, ...

@@ -1,30 +1,23 @@
-(*  Title:      Pure/pattern.ML
-    Author:     Tobias Nipkow, Christine Heinzelmann, and Stefan Berghofer, TU Muenchen
-
-Unification of Higher-Order Patterns.
-
-See also:
-Tobias Nipkow. Functional Unification of Higher-Order Patterns.
-In Proceedings of the 8th IEEE Symposium Logic in Computer Science, 1993.
-
-TODO: optimize red by special-casing it
-*)
-
-signature PATTERNH =
+signature HO_PAT_HINT_UNIFICATION =
 sig
+
   exception Unif
   exception Pattern
+  
   val unify_trace_failure: bool Config.T
   val unify_types: Context.generic -> typ * typ -> Envir.env -> Envir.env
   val h_unify: Context.generic -> term * term -> Envir.env -> Envir.env * thm
-  val unify_abstraction: Context.generic -> thm -> term -> Envir.env -> thm
-end;
+  val unify: Context.generic -> term * term -> Envir.env -> Envir.env * thm
 
-structure PatternH: PATTERNH =
+end
+
+structure HO_Pat_Hint_Unif : HO_PAT_HINT_UNIFICATION =
 struct
 
-exception Unif;
-exception Pattern;
+open Hint_Unif
+
+exception Unif
+exception Pattern
 
 val unify_trace_failure = Config.declare_bool ("unify_trace_failure", \<^here>) (K false);
 
@@ -33,9 +26,6 @@ fun string_of_term ctxt env binders t =
 
 (*theorems reflexity, combination and symmetry*)
 val reflexive = @{thm Pure.reflexive}
-val combination = Thm.axiom @{theory} "Pure.combination"
-val symmetric = @{thm Pure.symmetric}
-val abstraction = Thm.axiom @{theory} "Pure.abstract_rule";
 
 (*new helper funs from First_Order_Unification.ML*)
 
@@ -64,24 +54,6 @@ fun norm_thm ctxt envir thm =
   let val pctxt = Context.proof_of ctxt in
     infer_instantiate pctxt (envir_to_ct_map pctxt envir) thm
   end
-
-(*unifies the abstraction theorem with a theorem for a given var*)
-fun unify_abstraction ctxt thm var env =
-  let
-    val pctxt = Context.proof_of ctxt
-    val abstr = Thm.incr_indexes (Envir.maxidx_of env+1) abstraction
-    val abstr_prem_t = Thm.prems_of abstr |> hd
-    val thm_forall = forall_intr_list [Thm.cterm_of pctxt var] thm
-    val thm_forall_t = Thm.concl_of thm_forall
-    val unif_env = Pattern.unify ctxt (abstr_prem_t,thm_forall_t) env
-    val _ = pretty_env pctxt (Envir.term_env unif_env)
-    val inst_list = map
-      (fn (idxn,(_,t)) => (idxn,Thm.cterm_of pctxt (Envir.norm_term unif_env t)))
-      (Envir.term_env unif_env |> Vartab.dest)
-    val abstr_inst = Drule.infer_instantiate pctxt inst_list abstr
-  in
-    abstr_inst OF [thm]
-  end;
 
 fun make_bvar i typ env =
   Var (("b",i),Envir.norm_type (Envir.type_env env) typ)
@@ -301,37 +273,41 @@ fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
     in Envir.Envir {maxidx = maxidx', tenv = tenv, tyenv = tyenv'} end
     handle Type.TUNIFY => (typ_clash context (tyenv, T, U); raise Unif);
 
-fun unif hints context binders bvars (s,t) env = case (Envir.head_norm env s, Envir.head_norm env t) of
+fun unif try_hints_fun hints context binders bvars (s,t) env = case (Envir.head_norm env s, Envir.head_norm env t) of
       (Abs(ns,Ts,ts),Abs(nt,Tt,tt)) =>
         let
           val name = if ns = "" then nt else ns
           val env' = unify_types context (Ts, Tt) env
           val (bvar,bvars') = add_bvar Ts env' bvars
-          val (env'',thm) = unif hints context ((name,Ts)::binders) bvars' (ts,tt) (incr_maxidx 1 env')
+          val (env'',thm) = unif try_hints_fun hints context ((name,Ts)::binders) bvars' (ts,tt) (incr_maxidx 1 env')
         in (env'',unify_abstraction context thm (Envir.norm_term env'' bvar) env'') end
     | (Abs(ns,Ts,ts),t) =>
         let
           val (bvar,bvars') = add_bvar Ts env bvars
           val env' = incr_maxidx 1 env
-          val (env',thm) = unif hints context ((ns,Ts)::binders) bvars' (ts,(incr t)$Bound(0)) env'
+          val (env',thm) = unif try_hints_fun hints context ((ns,Ts)::binders) bvars' (ts,(incr t)$Bound(0)) env'
         in (env',unify_abstraction context thm bvar env') end
     | (t,Abs(nt,Tt,tt)) =>
         let
           val (bvar,bvars') = add_bvar Tt env bvars
           val env' = incr_maxidx 1 env
-          val (env',thm) = unif hints context ((nt,Tt)::binders) bvars' ((incr t)$Bound(0),tt) env'
+          val (env',thm) = unif try_hints_fun hints context ((nt,Tt)::binders) bvars' ((incr t)$Bound(0),tt) env'
         in (env',unify_abstraction context thm bvar env') end
-    | p => cases hints context (binders,bvars,env,p)
+    | p => cases try_hints_fun hints context (binders,bvars,env,p)
 
-and cases hints context (binders,bvars,env,(s,t)) = (case (strip_comb s,strip_comb t) of
+and cases try_hints_fun hints context (binders,bvars,env,(s,t)) =
+  (case (strip_comb s,strip_comb t) of
        ((Var(F,Fty),ss),(Var(G,Gty),ts)) =>
          if F = G then flexflex1(env,binders,F,Fty,ints_of' env ss,ints_of' env ts)
                   else flexflex2(env,binders,F,Fty,ints_of' env ss,G,Gty,ints_of' env ts)
       | ((Var(F,Fty),ss),_)           => flexrigid context (env,binders,F,Fty,ints_of' env ss,t)
       | (_,(Var(F,Fty),ts))           => flexrigid context (env,binders,F,Fty,ints_of' env ts,s)
-      | ((Const c,ss),(Const d,ts))   => rigidrigid hints context (env,binders,bvars,true,c,d,ss,ts)
-      | ((Free(f),ss),(Free(g),ts))   => rigidrigid hints context (env,binders,bvars,false,f,g,ss,ts)
-      | ((Bound(i),ss),(Bound(j),ts)) => rigidrigidB hints context (env,binders,bvars,i,j,ss,ts)
+      | ((Const c,ss),(Const d,ts))   =>
+          rigidrigid try_hints_fun hints context (env,binders,bvars,true,c,d,ss,ts)
+      | ((Free(f),ss),(Free(g),ts))   =>
+          rigidrigid try_hints_fun hints context (env,binders,bvars,false,f,g,ss,ts)
+      | ((Bound(i),ss),(Bound(j),ts)) =>
+          rigidrigidB try_hints_fun hints context (env,binders,bvars,i,j,ss,ts)
       | ((Abs(_),_),_)                => raise Pattern
       | (_,(Abs(_),_))                => raise Pattern
       | ((Const(c,_),_),(Free(f,_),_)) => (clash context c f; raise Unif)
@@ -341,33 +317,36 @@ and cases hints context (binders,bvars,env,(s,t)) = (case (strip_comb s,strip_co
       | ((Bound i,_),(Const(c,_),_))   => (clashB context binders i c; raise Unif)
       | ((Bound i,_),(Free(f,_),_))    => (clashB context binders i f; raise Unif))
   handle exn =>
-    let 
-      val hint_results = HUnif.try_hints context Pattern.match h_unify env (s,t) hints
+    let
+      val hint_results = try_hints_fun context Pattern.match h_unify env (s,t) hints
     in
       if null hint_results then
       raise exn else hd hint_results
     end
 
 (*unifies ss with ts, instantiates reflexivity for base of fold with t*)
-and fold_env_thm hints context (env,binders,bvars,t,ss,ts)=
+and fold_env_thm try_hints_fun hints context (env,binders,bvars,t,ss,ts)=
       fold
-        (fn ts => fn (envir,thm) => let val (envir',thm') = unif hints context binders bvars ts envir
-         in (envir',Thm.combination (norm_thm context envir' thm) (norm_thm context envir' thm')) end)
+        (fn ts =>
+          fn (envir,thm) =>
+            let val (envir',thm') = unif try_hints_fun hints context binders bvars ts envir
+            in (envir',combination (norm_thm context envir' thm) (norm_thm context envir' thm'))
+            end)
         (ss~~ts) (env,inst_refl context (Envir.norm_term env t))
 
-and rigidrigid hints context (env,binders,bvars,is_const,(a,Ta),(b,Tb),ss,ts) =
+and rigidrigid try_hints_fun hints context (env,binders,bvars,is_const,(a,Ta),(b,Tb),ss,ts) =
       if a<>b then (clash context a b; raise Unif)
       else
         let
           val env' = unify_types context (Ta,Tb) env
           val t = if is_const then Const(a,Ta) else Free(a,Ta)
         in
-          fold_env_thm hints context (env',binders,bvars,t,ss,ts)
+          fold_env_thm try_hints_fun hints context (env',binders,bvars,t,ss,ts)
         end
 
-and rigidrigidB hints context (env,binders,bvars,i,j,ss,ts) =
+and rigidrigidB try_hints_fun hints context (env,binders,bvars,i,j,ss,ts) =
      if i <> j then (clashBB context binders i j; raise Unif)
-     else fold_env_thm hints context (env,binders,bvars,lookup_var bvars i,ss,ts)
+     else fold_env_thm try_hints_fun hints context (env,binders,bvars,lookup_var bvars i,ss,ts)
 
 and flexrigid context (params as (env,binders,F,Fty,is,t)) =
       if occurs(F,t,env) then (ocheck_fail context (F,t,binders,env); raise Unif)
@@ -378,8 +357,10 @@ and flexrigid context (params as (env,binders,F,Fty,is,t)) =
             handle Unif => (proj_fail context params; raise Unif)
 
 and h_unify context =
-  unif (HUnif.gen_hint_list (Context.proof_of context)) context [] [];
+  unif try_hints (Hint_Unif.gen_hint_list (Context.proof_of context)) context [] []
 
+and unify context =
+  unif (K o K o K o K o K o K []) [] context [] [];
 
 
 end;

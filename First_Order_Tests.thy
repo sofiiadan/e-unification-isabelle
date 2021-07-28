@@ -1,16 +1,22 @@
-theory UnificationTests
+theory First_Order_Tests
 imports
-  Main
-  First_Steps
+  Hint_Unification
 begin
 
 ML_file \<open>Test.ML\<close>
-ML\<open>open Test\<close>
-ML\<open>val hint_unif = HUnif.first_order_unify_h
-   val std_unif = HUnif.first_order_unify
-   val ctxt = Context.the_generic_context\<close>
 
-(*
+ML\<open>
+  open Test
+  open Utils
+  val hint_unif = FO_Hint_Unif.first_order_unify_h
+  val std_unif = FO_Hint_Unif.first_order_unify
+  val ctxt = Context.the_generic_context
+\<close>
+
+setup\<open>term_pat_setup\<close>
+
+declare [[log_level=500]]
+
 (* Symmetry *)
 ML\<open>test_group symmetry std_unif "Free/Var" free_var_gen\<close>
 ML\<open>test_group symmetry hint_unif "Free/Var" free_var_gen\<close>
@@ -86,21 +92,9 @@ ML\<open>list_neg (ctxt ()) std_unif "Different Free/TFree fails"
 ML\<open>list_neg (ctxt ()) hint_unif "Different Free/TFree fails"
   [(Free("A",TFree("'a",[])),Free("A",TFree("'b",[]))),
    (Free("A",TFree("'a",[])),Free("B",TFree("'a",[])))]\<close>
-*)
+
 (** hint tests **)
-
-ML\<open>
-  (* insert after unit test to view the resulting Environment and theorem *)
-(*val (env,thm) = hint_unif (ctxt ()) (t1,t2) (Envir.empty 0);
-  pretty_env @{context} (Envir.term_env env);
-  pretty_thm @{context} thm |> pwriteln *)
-\<close>
-
-ML\<open>
-  Proofterm.oracle_proof "hello" @{term_pat "1 \<equiv> 2::nat"}
-\<close>
-
-
+(*use <trace_test_result (ctxt()) (t1,t2) hint_unif> to view unification result*)
 
 (* non-recursive hint tests *)
 
@@ -108,7 +102,7 @@ ML\<open>
 ML\<open>
   val (t1,t2) = (@{term_pat "5::nat"}, @{term_pat "?b + 0 ::nat"});
   single_neg (ctxt ()) hint_unif "add_zero without hint" (t1,t2)\<close>
-lemma add_zero [hints]: "Y \<equiv> Z \<Longrightarrow>  X \<equiv> (0::nat) \<Longrightarrow> Y + X \<equiv> Z"
+lemma add_zero [hints]: "Y \<equiv> Z \<Longrightarrow> X \<equiv> (0::nat) \<Longrightarrow> Y + X \<equiv> Z"
   by simp
 ML\<open>single_pos (ctxt ()) hint_unif "add_zero with hint" (t1,t2)\<close>
 
@@ -149,8 +143,6 @@ ML\<open>single_pos (ctxt ()) hint_unif "Suc x = 4 with multiple matching hints,
   (t1,t2)\<close>
 
 (* recursive hint tests *)
-
-declare [[log_level=1000]]
 
 (*Suc (Suc 0) = 2*)
 ML\<open>
@@ -210,8 +202,6 @@ ML\<open>
   single_pos (ctxt ()) hint_unif "" (t1,t2);
 \<close>
 
-consts r :: "nat \<Rightarrow> nat" t :: "nat \<Rightarrow> nat"
-
 (*recursive calls with alternating hints*)
 lemma [hints]:"X \<equiv> Y \<Longrightarrow> f X \<equiv> g Y"
   sorry
@@ -223,18 +213,16 @@ ML\<open>
   val (t1,t2) = (@{term_pat "f2 (f (g 0)) ::nat"}, @{term_pat "g2 (f (g 0)) ::nat"});
   single_pos (ctxt ()) hint_unif "" (t1,t2)\<close>
 
-(*premise order*)
-lemma h1[hints]: "Y \<equiv> f \<Longrightarrow> X \<equiv> Y a \<Longrightarrow> X \<equiv> Y b"
-sorry
+
+(*premise order: case where Xi depends on Xj with j>i cannot unify*)
+consts n::nat m::nat 
+
+lemma h1[hints]: "X1 \<equiv> X2 n \<Longrightarrow> X2 \<equiv> f \<Longrightarrow> X1 \<equiv> f m"
+  sorry
 
 ML\<open>
-  val (t1,t2) = (@{term_pat "?g a ::nat"}, @{term_pat "?g b ::nat"});
-  single_pos (ctxt ()) hint_unif "" (t1,t2);
-  val (env,thm) = hint_unif (ctxt ()) (t1,t2) (Envir.empty 0);
-  pretty_env @{context} (Envir.term_env env);
-  pretty_thm @{context} thm |> pwriteln
-\<close>
-(*weiteres beispiel*)
+  val (t1,t2) = (@{term_pat "f n ::nat"}, @{term_pat "f m ::nat"});
+  single_neg (ctxt ()) hint_unif "" (t1,t2);\<close>
 
 
 end

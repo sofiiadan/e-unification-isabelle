@@ -2,17 +2,17 @@ signature TEST =
 sig
 
   type unificationf = Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
-  type unif_test_gen = Context.generic -> unificationf -> string -> term Gen_Types.gen -> Random.rand
-    -> Random.rand
+  type unif_test_gen = Context.generic -> unificationf -> string -> term Spec_Check_Gen_Types.gen
+    -> Spec_Check_Random.rand -> Spec_Check_Random.rand
 
-  val free_gen : int -> term Gen_Types.gen
-  val var_gen : int -> term Gen_Types.gen
-  val free_var_gen : int -> term Gen_Types.gen
+  val free_gen : int -> term Spec_Check_Gen_Types.gen
+  val var_gen : int -> term Spec_Check_Gen_Types.gen
+  val free_var_gen : int -> term Spec_Check_Gen_Types.gen
 
-  val test_group : unif_test_gen -> unificationf -> string -> (int -> term Gen_Types.gen) ->
-    Random.rand
-  val test_group_idxs : unif_test_gen -> unificationf -> int list -> string -> (int -> term Gen_Types.gen) ->
-    Random.rand
+  val test_group : unif_test_gen -> unificationf -> string -> (int -> term Spec_Check_Gen_Types.gen) ->
+    Spec_Check_Random.rand
+  val test_group_idxs : unif_test_gen -> unificationf -> int list -> string -> (int -> term Spec_Check_Gen_Types.gen) ->
+    Spec_Check_Random.rand
   val list_pos : Context.generic -> unificationf -> string -> (term * term) list ->
     (term * term) Seq.seq
   val list_neg : Context.generic -> unificationf -> string -> (term * term) list ->
@@ -40,22 +40,23 @@ end
 structure Test : TEST =
 struct
 
-open Property
+open Utils
+open Spec_Check_Property
 infix ==>
 
 type unificationf = Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
-type unif_test_gen = Context.generic -> unificationf -> string -> term Gen_Types.gen -> Random.rand ->
-  Random.rand
+type unif_test_gen = Context.generic -> unificationf -> string -> term Spec_Check_Gen_Types.gen -> Spec_Check_Random.rand ->
+  Spec_Check_Random.rand
 
-fun num_variants_gen nv = Generator.lift nv
-val index_gen = Gen_Int.nonneg 10
+fun num_variants_gen nv = Spec_Check_Generator.lift nv
+val index_gen = Spec_Check_Gen_Int.nonneg 10
 fun aterm_args_gen nv weights h _ =
-  Gen_Base.zip (Gen_Term.aterm' (num_variants_gen nv) index_gen weights)
-      (Gen_Int.nonneg (Int.max (0, 4-h)))
+  Spec_Check_Gen_Base.zip (Spec_Check_Gen_Term.aterm' (num_variants_gen nv) index_gen weights)
+      (Spec_Check_Gen_Int.nonneg (Int.max (0, 4-h)))
 
-fun free_gen nv = Gen_Term.term_tree (aterm_args_gen nv (0,1,0,0))
-fun var_gen nv = Gen_Term.term_tree (aterm_args_gen nv (0,0,1,0))
-fun free_var_gen nv = Gen_Term.term_tree (aterm_args_gen nv (0,3,1,0))
+fun free_gen nv = Spec_Check_Gen_Term.term_tree (aterm_args_gen nv (0,1,0,0))
+fun var_gen nv = Spec_Check_Gen_Term.term_tree (aterm_args_gen nv (0,0,1,0))
+fun free_var_gen nv = Spec_Check_Gen_Term.term_tree (aterm_args_gen nv (0,3,1,0))
 
 val empty_env = Envir.empty 0
 
@@ -66,18 +67,19 @@ fun test_group test unif gen_name gen =
   fold
     I
     (map (test_with test unif gen_name gen) [1,5,10])
-    (Random.new ())
+    (Spec_Check_Random.new ())
 
 fun test_group_idxs test unif idxs gen_name gen =
   fold
     (fn test => test)
     (map (test_with test unif gen_name gen) idxs)
-    (Random.new ())
+    (Spec_Check_Random.new ())
 
 fun print_term ctxt t =
   Pretty.string_of (pretty_term ctxt t)
 
-fun print_termtup ctxt (t1,t2) = pretty_terms (Context.proof_of ctxt) [t1,t2]
+fun print_termtup ctxt (t1,t2) =
+  pretty_terms (Context.proof_of ctxt) [t1,t2]
 
 fun print_termtup_unif ctxt unif (t1,t2) =
   let
@@ -212,7 +214,7 @@ fun single_neg ctxt unif name ts =
     (prop (not o terms_unify ctxt unif empty_env))
     (Context.proof_of ctxt)
 
-val shrink_termtup = Shrink.product Shrink.term Shrink.term
+val shrink_termtup = Spec_Check_Shrink.product Spec_Check_Shrink.term Spec_Check_Shrink.term
 
 fun test_termtup ctxt unif name prop gen =
   Spec_Check.check_shrink (print_termtup_unif ctxt unif) shrink_termtup
