@@ -34,6 +34,23 @@ val abstraction = Thm.axiom @{theory} "Pure.abstract_rule";
 fun reflexive_term ctxt t =
   reflexive (Thm.cterm_of (Context.proof_of ctxt) t)
 
+(*unifies the abstraction theorem with a theorem for a given var*)
+fun unify_abstraction ctxt thm var env =
+  let
+    val pctxt = Context.proof_of ctxt
+    val abstr = Thm.incr_indexes (Envir.maxidx_of env+1) abstraction
+    val abstr_prem_t = Thm.prems_of abstr |> hd
+    val thm_forall = forall_intr_list [Thm.cterm_of pctxt var] thm
+    val thm_forall_t = Thm.concl_of thm_forall
+    val unif_env = Pattern.unify ctxt (abstr_prem_t,thm_forall_t) env
+    val inst_list = map
+      (fn (idxn,(_,t)) => (idxn,Thm.cterm_of pctxt (Envir.norm_term unif_env t)))
+      (Envir.term_env unif_env |> Vartab.dest)
+    val abstr_inst = Drule.infer_instantiate pctxt inst_list abstr
+  in
+    abstr_inst OF [thm]
+  end
+
 (*converts Envir into lists of var to cterm and tvar to ctype mappings*)
 fun env_lists (Envir.Envir {tenv,tyenv,...}) ctxt =
   (map (fn (xi,(S,T)) => ((xi,S),Thm.ctyp_of ctxt T)) (Vartab.dest tyenv),
@@ -112,10 +129,9 @@ fun try_hint ctxt match unif
     val pmatch = match (Context.theory_of ctxt)
     fun inf_instantiate env thm = infer_instantiate pctxt (envir_to_ct_map pctxt env) thm
     val unif_envs = (tyenv,tenv)
-    val ((tyenv,tenv),flip) = ((pmatch (h2,t2) (pmatch (h1,t1) unif_envs),false)
+    val ((match_tyenv,match_tenv),flip) = ((pmatch (h2,t2) (pmatch (h1,t1) unif_envs),false)
       handle Pattern.MATCH => ((pmatch (h1,t2) (pmatch (h2,t1) unif_envs)),true))
-    val match_envir = Envir.Envir {tyenv=tyenv,tenv=tenv,maxidx=maxidx_new}
-    val (match_tyenv,match_tenv) = envir_to_envs match_envir
+    val match_envir = Envir.Envir {tyenv=match_tyenv,tenv=match_tenv,maxidx=maxidx_new}
     val hint_thm_matched = inf_instantiate match_envir hint_thm
 
     val _ = Log.debug pctxt tracing "Hint matches, now unifying hint premises..."
@@ -167,22 +183,7 @@ fun try_hints ctxt match unif envir (t1,t2) =
     o map (try_hint ctxt match unif envir (t1,t2)))
   end
 
-(*unifies the abstraction theorem with a theorem for a given var*)
-fun unify_abstraction ctxt thm var env =
-  let
-    val pctxt = Context.proof_of ctxt
-    val abstr = Thm.incr_indexes (Envir.maxidx_of env+1) abstraction
-    val abstr_prem_t = Thm.prems_of abstr |> hd
-    val thm_forall = forall_intr_list [Thm.cterm_of pctxt var] thm
-    val thm_forall_t = Thm.concl_of thm_forall
-    val unif_env = Pattern.unify ctxt (abstr_prem_t,thm_forall_t) env
-    val inst_list = map
-      (fn (idxn,(_,t)) => (idxn,Thm.cterm_of pctxt (Envir.norm_term unif_env t)))
-      (Envir.term_env unif_env |> Vartab.dest)
-    val abstr_inst = Drule.infer_instantiate pctxt inst_list abstr
-  in
-    abstr_inst OF [thm]
-  end
+
 
 
 end

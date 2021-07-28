@@ -12,9 +12,6 @@ struct
 open Utils
 open Hint_Unif
 
-exception Unif of term * term
-exception Occurs_Check of term
-
 (*map function over bound indices, from pattern.ML*)
 fun mapbnd f =
   let fun mpb d (Bound (i))    = if i < d then Bound(i) else Bound(f(i-d)+d)
