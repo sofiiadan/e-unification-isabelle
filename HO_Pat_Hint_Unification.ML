@@ -1,8 +1,5 @@
 signature HO_PAT_HINT_UNIFICATION =
 sig
-
-  exception Unif
-  exception Pattern
   
   val unify_trace_failure: bool Config.T
   val unify_types: Context.generic -> typ * typ -> Envir.env -> Envir.env
@@ -16,30 +13,10 @@ struct
 
 open Hint_Unif
 
-exception Unif
-exception Pattern
-
 val unify_trace_failure = Config.declare_bool ("unify_trace_failure", \<^here>) (K false);
 
 fun string_of_term ctxt env binders t =
   Syntax.string_of_term ctxt (Envir.norm_term env (subst_bounds (map Free binders, t)));
-
-(*theorems reflexity, combination and symmetry*)
-val reflexive = @{thm Pure.reflexive}
-
-(*new helper funs from First_Order_Unification.ML*)
-
-(*instantiates the first type variable in th with typ*)
-fun instantiate_type_var ctxt typ thm =
-  Thm.instantiate ([(hd (Term.add_tvars (Thm.full_prop_of thm) []), Thm.ctyp_of ctxt typ)], []) thm
-
-(*instantiates Pure.reflexive with [t/x_0]*)
-fun inst_refl ctxt t =
-  let val pctxt = Context.proof_of ctxt
-      val renamed_refl = instantiate_type_var pctxt (type_of t) reflexive
-      val var =  (hd (Term.add_vars (Thm.full_prop_of renamed_refl) []))
-      val ct = Thm.cterm_of pctxt t
-  in infer_instantiate_types pctxt [(var,ct)] renamed_refl end
 
 (*converts Envir into lists of var to cterm and tvar to ctype mappings*)
 fun env_lists (Envir.Envir {tenv,tyenv,...}) ctxt =
@@ -63,7 +40,7 @@ fun incr_maxidx i (Envir.Envir {tenv,tyenv,maxidx}) =
 
 fun lookup_var bvars i =
   case List.find ((fn j => j=i) o fst) bvars of
-    NONE => raise Unif
+    NONE => raise Pattern.Unif
     | SOME (_,var) => var
 
 val incr_bvars = map (fn (i,var)=>(i+1,var))
@@ -143,7 +120,7 @@ fun mapbnd f =
           | mpb _ atom           = atom
     in mpb 0 end;
 
-fun idx [] _     = raise Unif
+fun idx [] _     = raise Pattern.Unif
   | idx(i::is) j = if (i:int) =j then length is else idx is j;
 
 fun mkabs (binders,is,t)  =
@@ -157,8 +134,8 @@ val incr = mapbnd (fn i => i+1);
 fun ints_of []             = []
   | ints_of (Bound i ::bs) =
       let val is = ints_of bs
-      in if member (op =) is i then raise Pattern else i::is end
-  | ints_of _              = raise Pattern;
+      in if member (op =) is i then raise Pattern.Pattern else i::is end
+  | ints_of _              = raise Pattern.Pattern;
 
 fun ints_of' env ts = ints_of (map (Envir.head_norm env) ts);
 
@@ -218,7 +195,7 @@ fun proj(s,env,binders,is) =
                           val env'' =
                             Envir.update ((F, Fty), mk_hnf (binders, js, H, ks)) env'
                       in (app(H,ls),env'') end
-                 | _  => raise Pattern))
+                 | _  => raise Pattern.Pattern))
         and prs(s::ss,env,d,binders) =
               let val (s',env1) = pr(s,env,d,binders)
                   val (ss',env2) = prs(ss,env1,d,binders)
@@ -236,22 +213,22 @@ fun mk_ff_list(is,js) =
           | mk _               = raise Fail "mk_ff_list"
     in mk(is,js,length is-1) end;
 
-fun flexflex1(env,binders,F,Fty,is,js) =
+fun flexflex1 context (env,binders,F,Fty,is,js) =
   if is=js then
-    (env,inst_refl (Context.the_generic_context()) (Envir.norm_term env (app (Var(F,Fty),is))))
+    (env,reflexive_term context (Envir.norm_term env (app (Var(F,Fty),is))))
   else
     let val ks = mk_ff_list(is,js)
         val env' = mk_new_hnf(env,binders,is,F,Fty,ks)
-    in (env',inst_refl (Context.the_generic_context()) (Envir.norm_term env' (app (Var(F,Fty),is))))
+    in (env',reflexive_term context (Envir.norm_term env' (app (Var(F,Fty),is))))
     end;
 
-fun flexflex2(env,binders,F,Fty,is,G,Gty,js) =
+fun flexflex2 context (env,binders,F,Fty,is,G,Gty,js) =
   let fun ff(F,Fty,is,G as (a,_),Gty,js) =
         if subset (op =) (js, is)
         then
           let val t = mkabs(binders,is,app(Var(G,Gty),map (idx is) js))
               val env'' = Envir.update ((F, Fty), t) env
-          in (env'',inst_refl (Context.the_generic_context()) (Envir.norm_term env'' (app(Var(G,Gty),map (idx is) js))))
+          in (env'',reflexive_term context (Envir.norm_term env'' (app(Var(G,Gty),map (idx is) js))))
           end
         else
           let val ks = inter (op =) js is
@@ -259,7 +236,7 @@ fun flexflex2(env,binders,F,Fty,is,G,Gty,js) =
               val (env',H) = Envir.genvar a (env,Hty)
               fun lam is = mkabs(binders,is,app(H,map (idx is) ks))
               val env'' = Envir.update ((G, Gty), lam js) (Envir.update ((F, Fty), lam is) env')
-          in (env'', inst_refl (Context.the_generic_context()) (Envir.norm_term env' (app(H,map (idx is) ks))))
+          in (env'',reflexive_term context (Envir.norm_term env' (app(H,map (idx is) ks))))
           end;
   in if Term_Ord.indexname_ord (G,F) = LESS then ff(F,Fty,is,G,Gty,js) else ff(G,Gty,js,F,Fty,is)
   end;
@@ -271,7 +248,7 @@ fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
       val thy = Context.theory_of context
       val (tyenv', maxidx') = Sign.typ_unify thy (U, T) (tyenv, maxidx)
     in Envir.Envir {maxidx = maxidx', tenv = tenv, tyenv = tyenv'} end
-    handle Type.TUNIFY => (typ_clash context (tyenv, T, U); raise Unif);
+    handle Type.TUNIFY => (typ_clash context (tyenv, T, U); raise Pattern.Unif);
 
 fun unif try_hints_fun hints context binders bvars (s,t) env = case (Envir.head_norm env s, Envir.head_norm env t) of
       (Abs(ns,Ts,ts),Abs(nt,Tt,tt)) =>
@@ -298,8 +275,8 @@ fun unif try_hints_fun hints context binders bvars (s,t) env = case (Envir.head_
 and cases try_hints_fun hints context (binders,bvars,env,(s,t)) =
   (case (strip_comb s,strip_comb t) of
        ((Var(F,Fty),ss),(Var(G,Gty),ts)) =>
-         if F = G then flexflex1(env,binders,F,Fty,ints_of' env ss,ints_of' env ts)
-                  else flexflex2(env,binders,F,Fty,ints_of' env ss,G,Gty,ints_of' env ts)
+         if F = G then flexflex1 context (env,binders,F,Fty,ints_of' env ss,ints_of' env ts)
+                  else flexflex2 context (env,binders,F,Fty,ints_of' env ss,G,Gty,ints_of' env ts)
       | ((Var(F,Fty),ss),_)           => flexrigid context (env,binders,F,Fty,ints_of' env ss,t)
       | (_,(Var(F,Fty),ts))           => flexrigid context (env,binders,F,Fty,ints_of' env ts,s)
       | ((Const c,ss),(Const d,ts))   =>
@@ -308,14 +285,14 @@ and cases try_hints_fun hints context (binders,bvars,env,(s,t)) =
           rigidrigid try_hints_fun hints context (env,binders,bvars,false,f,g,ss,ts)
       | ((Bound(i),ss),(Bound(j),ts)) =>
           rigidrigidB try_hints_fun hints context (env,binders,bvars,i,j,ss,ts)
-      | ((Abs(_),_),_)                => raise Pattern
-      | (_,(Abs(_),_))                => raise Pattern
-      | ((Const(c,_),_),(Free(f,_),_)) => (clash context c f; raise Unif)
-      | ((Const(c,_),_),(Bound i,_))   => (clashB context binders i c; raise Unif)
-      | ((Free(f,_),_),(Const(c,_),_)) => (clash context f c; raise Unif)
-      | ((Free(f,_),_),(Bound i,_))    => (clashB context binders i f; raise Unif)
-      | ((Bound i,_),(Const(c,_),_))   => (clashB context binders i c; raise Unif)
-      | ((Bound i,_),(Free(f,_),_))    => (clashB context binders i f; raise Unif))
+      | ((Abs(_),_),_)                => raise Pattern.Pattern
+      | (_,(Abs(_),_))                => raise Pattern.Pattern
+      | ((Const(c,_),_),(Free(f,_),_)) => (clash context c f; raise Pattern.Unif)
+      | ((Const(c,_),_),(Bound i,_))   => (clashB context binders i c; raise Pattern.Unif)
+      | ((Free(f,_),_),(Const(c,_),_)) => (clash context f c; raise Pattern.Unif)
+      | ((Free(f,_),_),(Bound i,_))    => (clashB context binders i f; raise Pattern.Unif)
+      | ((Bound i,_),(Const(c,_),_))   => (clashB context binders i c; raise Pattern.Unif)
+      | ((Bound i,_),(Free(f,_),_))    => (clashB context binders i f; raise Pattern.Unif))
   handle exn =>
     let
       val hint_results = try_hints_fun context Pattern.match h_unify env (s,t) hints
@@ -332,10 +309,10 @@ and fold_env_thm try_hints_fun hints context (env,binders,bvars,t,ss,ts)=
             let val (envir',thm') = unif try_hints_fun hints context binders bvars ts envir
             in (envir',combination (norm_thm context envir' thm) (norm_thm context envir' thm'))
             end)
-        (ss~~ts) (env,inst_refl context (Envir.norm_term env t))
+        (ss~~ts) (env,reflexive_term context (Envir.norm_term env t))
 
 and rigidrigid try_hints_fun hints context (env,binders,bvars,is_const,(a,Ta),(b,Tb),ss,ts) =
-      if a<>b then (clash context a b; raise Unif)
+      if a<>b then (clash context a b; raise Pattern.Unif)
       else
         let
           val env' = unify_types context (Ta,Tb) env
@@ -345,20 +322,22 @@ and rigidrigid try_hints_fun hints context (env,binders,bvars,is_const,(a,Ta),(b
         end
 
 and rigidrigidB try_hints_fun hints context (env,binders,bvars,i,j,ss,ts) =
-     if i <> j then (clashBB context binders i j; raise Unif)
+     if i <> j then (clashBB context binders i j; raise Pattern.Unif)
      else fold_env_thm try_hints_fun hints context (env,binders,bvars,lookup_var bvars i,ss,ts)
 
 and flexrigid context (params as (env,binders,F,Fty,is,t)) =
-      if occurs(F,t,env) then (ocheck_fail context (F,t,binders,env); raise Unif)
+      if occurs(F,t,env) then (ocheck_fail context (F,t,binders,env); raise Pattern.Unif)
       else
         let val (u,env') = proj(t,env,binders,is)
             val env'' = Envir.update ((F, Fty), mkabs (binders, is, u)) env'
-        in (env'',inst_refl context (Envir.norm_term env' (Var(F,Fty)))) end
-            handle Unif => (proj_fail context params; raise Unif)
+        in (env'',reflexive_term context (Envir.norm_term env' (Var(F,Fty)))) end
+            handle Pattern.Unif => (proj_fail context params; raise Pattern.Unif)
 
+(*higher-order pattern unification with hints from context*)
 and h_unify context =
   unif try_hints (Hint_Unif.gen_hint_list (Context.proof_of context)) context [] []
 
+(*higher-order pattern unification without hints*)
 and unify context =
   unif (K o K o K o K o K o K []) [] context [] [];
 

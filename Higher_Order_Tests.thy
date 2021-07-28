@@ -10,8 +10,7 @@ ML\<open>
   open Utils
   val hint_unif = HO_Pat_Hint_Unif.h_unify
   fun std_unif ctxt ts env = (Pattern.unify ctxt ts env,@{thm Pure.reflexive})
-  val ctxt = Context.the_generic_context
-\<close>
+  val ctxt = Context.the_generic_context\<close>
 
 setup\<open>term_pat_setup\<close>
 declare [[log_level=500]]

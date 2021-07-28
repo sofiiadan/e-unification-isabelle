@@ -26,15 +26,10 @@ fun mapbnd f =
 (*increases all bound indices in a term by 1*)
 val incr = mapbnd (fn i => i+1)
 
-(*instantiates Pure.reflexive with [t/x_0]*)
-fun inst_refl context t =
-  let val ctxt = Context.proof_of context
-      val ct = Thm.cterm_of ctxt t
-  in Thm.reflexive ct end
-
 (*discharges n prems by applying reflexivity*)
 fun discharge_prems context thm n =
-  let val refl = inst_refl context (Var (("x", 0), TVar (("'a", 0),[])))
+  let
+    val refl = reflexive (Thm.cterm_of (Context.proof_of context) (Var(("x",0),TVar(("'a",0),[]))))
   in thm OF (replicate n refl) end
 
 (*converts Envir into lists of var to cterm and tvar to ctype mappings*)
@@ -68,30 +63,32 @@ let
         if x=y then
           let
             val env' = Pattern.unify_types context (Ty,Tx) envir
+            val T = Envir.norm_type (Envir.type_env env') Tx
           in
-            (env',inst_refl context (Free(x,Envir.norm_type (Envir.type_env env') Tx))) end
+            (env',reflexive_term context (Free(x,T))) end
         else raise Pattern.Unif
     | (Const(x,Tx),Const(y,Ty)) =>
         if x=y then
           let
             val env' = Pattern.unify_types context (Ty,Tx) envir
+            val T = Envir.norm_type (Envir.type_env env') Tx
           in
-            (env', reflexive (Thm.cterm_of (Context.proof_of context) (Const(x,Envir.norm_type (Envir.type_env env') Tx)))) end
+            (env',reflexive_term context (Const(x,T))) end
         else raise Pattern.Unif
     | (f $ t1,g $ t2) =>
         let
           val (env',thm_fg) = unif try_hints_fun envir (f,g)
           val (env'',thm_xy) = unif try_hints_fun env' (Envir.norm_term env' t1, Envir.norm_term env' t2)
         in
-          (env'', combination (norm_thm context env'' thm_fg) (norm_thm context env'' thm_xy))
+          (env'',combination (norm_thm context env'' thm_fg) (norm_thm context env'' thm_xy))
         end
     | (Var(x,Tx),Var(y,Ty)) =>
         let
           val env' = Pattern.unify_types context (Ty,Tx) envir
-          val norm_tyenv' = Envir.norm_type (Envir.type_env env')
+          val T = Envir.norm_type (Envir.type_env env') Tx
         in
-         (if x=y then env' else Envir.update ((x,norm_tyenv' Tx),Var(y,norm_tyenv' Ty)) env',
-          inst_refl context (Var(y,norm_tyenv' Ty)))
+         (if x=y then env' else Envir.update ((x,T),Var(y,T)) env',
+          reflexive_term context (Var(y,T)))
         end
     | (Var(x,Tx),t) =>
         if Term.is_open t then raise Pattern.Unif
@@ -102,11 +99,12 @@ let
                let val env' = Pattern.unify_types context (fastype_of t,Tx) envir
                in
                  (Envir.update ((x,Envir.norm_type (Envir.type_env env') Tx),t) env',
-                  inst_refl context t)
+                  reflexive_term context t)
                end
            | SOME t' =>
-               if Envir.aeconv (t',t) then (envir,inst_refl context t')
-               else unif try_hints_fun envir (t',t))
+               if Envir.aeconv (t',t)
+                 then (envir,reflexive_term context t')
+                 else unif try_hints_fun envir (t',t))
     | (t,Var(x,Tx)) =>
         if Term.is_open t then raise Pattern.Unif
          else if contains_var x t then raise Pattern.Unif
@@ -116,13 +114,15 @@ let
                 let val env' = Pattern.unify_types context (fastype_of t,Tx) envir
                 in
                   (Envir.update ((x,Envir.norm_type (Envir.type_env env') Tx),t) env',
-                   inst_refl context t)
+                   reflexive_term context t)
                 end
             | SOME t' =>
-                if Envir.aeconv (t,t') then (envir,inst_refl context t)
-                else unif try_hints_fun envir (t,t'))
-    | (Bound i,Bound j) => if i=j then (envir,inst_refl context (Bound i))
-                           else raise Pattern.Unif
+                if Envir.aeconv (t,t')
+                  then (envir,reflexive_term context t)
+                  else unif try_hints_fun envir (t,t'))
+    | (Bound i,Bound j) =>
+        if i=j then (envir,reflexive_term context (Bound i))  (**)
+               else raise Pattern.Unif
     | (Abs(_,ty1,t1),Abs(_,ty2,t2)) =>
         unif try_hints_fun (Pattern.unify_types context (ty1,ty2) envir) (t1,t2)
     | (t1,Abs(_,_,t2))              => unif try_hints_fun envir (t2,(incr t1)$(Bound 0))
@@ -145,10 +145,11 @@ in
   end
 end
 
-(*first order unification with hints from context*)
+(*first-order unification with hints from context*)
 and fo_unify_hints ctxt = fo_unification try_hints (gen_hint_list (Context.proof_of ctxt)) ctxt
 
-(*first order unification without hints*)
-and fo_unify ctxt = fo_unification (K o K o K o K o K o K []) [] ctxt
+(*first-order unification without hints*)
+and fo_unify ctxt = fo_unification (K o K o K o K o K o K []) [] ctxt;
+
 
 end

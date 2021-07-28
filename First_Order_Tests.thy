@@ -8,8 +8,8 @@ ML_file \<open>Test.ML\<close>
 ML\<open>
   open Test
   open Utils
-  val hint_unif = FO_Hint_Unif.first_order_unify_h
-  val std_unif = FO_Hint_Unif.first_order_unify
+  val hint_unif = FO_Hint_Unif.fo_unify_hints
+  val std_unif = FO_Hint_Unif.fo_unify
   val ctxt = Context.the_generic_context
 \<close>
 

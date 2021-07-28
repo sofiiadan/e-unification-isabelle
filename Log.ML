@@ -37,7 +37,8 @@ val ALL   = 1000
 val log_level_config = Attrib.setup_config_int @{binding \<open>log_level\<close>} (K ERR)
 
 (* general logging function, prints message using print_f if current log_level \<ge> lvl *)
-fun log ctxt custom_lvl print_f = if custom_lvl < Config.get ctxt log_level_config then print_f else K ()
+fun log ctxt custom_lvl print_f =
+  if custom_lvl < Config.get ctxt log_level_config then print_f else K ()
 
 (* logging functions for different log levels *)
 fun fatal ctxt = log ctxt FATAL

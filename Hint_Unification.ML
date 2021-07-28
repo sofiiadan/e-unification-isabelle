@@ -9,6 +9,7 @@ sig
   val reflexive : cterm -> thm
   val combination : thm -> thm -> thm
   val symmetric : thm -> thm
+  val reflexive_term : Context.generic -> term -> thm
   val unify_abstraction : Context.generic -> thm -> term -> Envir.env -> thm
 
   val gen_hint_list : Proof.context -> hint list
@@ -30,6 +31,8 @@ val combination = Thm.combination
 val symmetric = Thm.symmetric
 val abstraction = Thm.axiom @{theory} "Pure.abstract_rule";
 
+fun reflexive_term ctxt t =
+  reflexive (Thm.cterm_of (Context.proof_of ctxt) t)
 
 (*converts Envir into lists of var to cterm and tvar to ctype mappings*)
 fun env_lists (Envir.Envir {tenv,tyenv,...}) ctxt =
@@ -38,9 +41,6 @@ fun env_lists (Envir.Envir {tenv,tyenv,...}) ctxt =
 
 (*converts Envir into var to cterm list without type (for infer_instantiate)*)
 fun envir_to_ct_map ctxt env = env_lists env ctxt |> snd |> map (fn ((a,_),c) => (a,c))
-
-(*converts idx, type and term environment into Envir*)
-fun idx_envs_to_envir idx (tyenv,tenv) = Envir.Envir {tyenv=tyenv,tenv=tenv,maxidx=idx}
 
 (*converts Envir into type and term environment*)
 fun envir_to_envs (Envir.Envir {tyenv,tenv,...}) = (tyenv,tenv)
@@ -112,9 +112,9 @@ fun try_hint ctxt match unif
     val pmatch = match (Context.theory_of ctxt)
     fun inf_instantiate env thm = infer_instantiate pctxt (envir_to_ct_map pctxt env) thm
     val unif_envs = (tyenv,tenv)
-    val (match_envs,flip) = ((pmatch (h2,t2) (pmatch (h1,t1) unif_envs),false)
+    val ((tyenv,tenv),flip) = ((pmatch (h2,t2) (pmatch (h1,t1) unif_envs),false)
       handle Pattern.MATCH => ((pmatch (h1,t2) (pmatch (h2,t1) unif_envs)),true))
-    val match_envir = idx_envs_to_envir maxidx_new match_envs
+    val match_envir = Envir.Envir {tyenv=tyenv,tenv=tenv,maxidx=maxidx_new}
     val (match_tyenv,match_tenv) = envir_to_envs match_envir
     val hint_thm_matched = inf_instantiate match_envir hint_thm
 
@@ -149,15 +149,11 @@ fun try_hint ctxt match unif
   end
     handle
       Pattern.MATCH =>
-        let
-          val pctxt = Context.proof_of ctxt
-          val _ = Log.debug pctxt tracing "Hint does not match"
-        in NONE end
+        (Log.debug (Context.proof_of ctxt) tracing "Hint does not match"; NONE)
     | _ =>
-        let
-          val pctxt = Context.proof_of ctxt
-          val _ = Log.debug pctxt (tracing_str_hint pctxt "Hint matches but cannot unify:") hint
-        in NONE end
+        let val pctxt = Context.proof_of ctxt in
+          (Log.debug pctxt (tracing_str_hint pctxt "Hint matches but cannot unify:") hint; NONE)
+        end
 
 (*try to apply every hint from the hint list*)
 fun try_hints ctxt match unif envir (t1,t2) =
