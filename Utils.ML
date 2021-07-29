@@ -96,17 +96,11 @@ fun trace_unif_result ctxt (t1,t2) (env,thm) =
       [Envir.norm_term env t1,Envir.norm_term env t2]
   in () end
 
-fun trace_test_result ctxt (t1,t2) unif =
+fun trace_test_result ctxt ts unif =
   let
     val pctxt = Context.proof_of ctxt
-    val (env,thm) = unif ctxt (t1,t2) (Envir.empty 0)
-    val _ = Log.info pctxt tracing "Unification results:"
-    val _ = Log.info pctxt (tracing o Pretty.string_of o pretty_env_p pctxt o Envir.term_env) env
-    val _ = Log.info pctxt (tracing o Pretty.string_of o pretty_tyenv_p pctxt o Envir.type_env) env
-    val _ = Log.info pctxt (tracing o Pretty.string_of o pretty_thm pctxt) thm
-    val _ = Log.info pctxt (tracing o Pretty.string_of o pretty_terms pctxt)
-      [Envir.norm_term env t1,Envir.norm_term env t2]
-  in () end
+    val sigma = unif ctxt ts (Envir.empty 0)
+  in trace_unif_result pctxt ts sigma end
 
 end
 

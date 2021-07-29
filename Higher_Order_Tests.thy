@@ -211,11 +211,15 @@ ML\<open>
 lemma [hints]:"X\<equiv>(0::nat) \<Longrightarrow> Y\<equiv>Z \<Longrightarrow> X + Y \<equiv>Z"
 by linarith
 ML\<open>
-  val (t1,t2) = (@{term_pat "\<lambda>x. (\<lambda>y. 0 + (1::nat))"},@{term_pat "\<lambda>x. (\<lambda>y. (1::nat))"});
+  val (t1,t2) = (@{term_pat "\<lambda>x. (\<lambda>y. 0 + 1::nat)"},@{term_pat "\<lambda>x. (\<lambda>y. 1::nat)"});
   trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
 ML\<open>
   val (t1,t2) = (@{term_pat "(\<lambda>x. 0 + Z + x::nat)"},@{term_pat "(\<lambda>x. Z + x::nat)"});
+  trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
+
+ML\<open>
+  val (t1,t2) = (@{term_pat "\<lambda>x. (\<lambda>y. 0 + Suc ?x::nat)"},@{term_pat "\<lambda>x. (\<lambda>y. 3::nat)"});
   trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
 consts
@@ -224,13 +228,16 @@ consts
   C :: "nat"
 
 ML\<open>
-  val (t1,t2) = (@{term_pat "\<lambda>u. B (?x,u)"},@{term_pat "\<lambda>v. B (?y,v)"});
+  val (t1,t2) = (@{term_pat "\<lambda>u. B (?x,u)"},@{term_pat "\<lambda>v. B (C,v)"});
   trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
 ML\<open>
-  val (t1,t2) = (@{term_pat "A (\<lambda>u. B (?x,u),C)"},@{term_pat "A (\<lambda>v. B (?y,v),C)"});
+  val (t1,t2) = (@{term_pat "A (\<lambda>u. B (?x,u),C)"},@{term_pat "A (\<lambda>v. B (C,v),?y)"});
   trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
+ML\<open>
+  val (t1,t2) = (@{term_pat "A (\<lambda>u. B (?x,C), C)"},@{term_pat "A (\<lambda>u. ?y, ?z)"});
+  trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
 (*Bound case not working yet*)
 ML\<open>

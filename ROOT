@@ -5,5 +5,6 @@ session Fol_Unif_Hints = "Pure" +
 sessions Spec_Check2
 
 theories  
-  First_Steps
-  UnificationTests
+  Hint_Unification
+  First_Order_Tests
+  Higher_Order_Tests
