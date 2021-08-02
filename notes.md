@@ -6,9 +6,9 @@
 1. Thesis writing
 2. Hint Unification Example #2 (Reification)
 3. Modularisieren
-  - First_Steps killen (Tests nach HO tests)
-  - alle unifier werden eine Instanz aus der generischen Funktion, die eine try_hints Funktion und Pattern matcher als Parameter erwartet
-4. Beispiel, warum lineare Ordnung der Praemissen wichtig ist
+  - First_Steps killen (Tests nach HO tests) #DONE
+  - alle unifier werden eine Instanz aus der generischen Funktion, die eine try_hints Funktion und Pattern matcher als Parameter erwartet #DONE
+4. Beispiel, warum lineare Ordnung der Praemissen wichtig ist #DONE
 
 10. Named theorems: Reihenfolge umdrehen
 7. Taktik erstellen
