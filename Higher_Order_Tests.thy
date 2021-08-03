@@ -68,7 +68,6 @@ ML\<open>list_neg (ctxt ()) hint_unif "Different Free/TFree fails"
 (*use <trace_test_result (ctxt()) (t1,t2) hint_unif> to view unification result*)
 
 (* non-recursive hint tests *)
-
 (*add_zero*)
 ML\<open>
   val (t1,t2) = (@{term_pat "5::nat"}, @{term_pat "?b + 0 ::nat"});
@@ -236,7 +235,7 @@ ML\<open>
   trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
 ML\<open>
-  val (t1,t2) = (@{term_pat "A (\<lambda>u. B (?x,C), C)"},@{term_pat "A (\<lambda>u. ?y, ?z)"});
+  val (t1,t2) = (@{term_pat "A (\<lambda>u. B (?x,C), C)"},@{term_pat "id (A (\<lambda>u. ?y, C+0))"});
   trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
 (*Bound case not working yet*)

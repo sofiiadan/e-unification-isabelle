@@ -250,26 +250,30 @@ fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
     in Envir.Envir {maxidx = maxidx', tenv = tenv, tyenv = tyenv'} end
     handle Type.TUNIFY => (typ_clash context (tyenv, T, U); raise Pattern.Unif);
 
-fun unif try_hints_fun hints context binders bvars (s,t) env = case (Envir.head_norm env s, Envir.head_norm env t) of
+fun unif try_hints_fun hints context binders bvars (s,t) env =
+  case (Envir.head_norm env s, Envir.head_norm env t) of
       (Abs(ns,Ts,ts),Abs(nt,Tt,tt)) =>
         let
           val name = if ns = "" then nt else ns
           val env' = unify_types context (Ts, Tt) env
           val (bvar,bvars') = add_bvar Ts env' bvars
-          val (env'',thm) = unif try_hints_fun hints context ((name,Ts)::binders) bvars' (ts,tt) (incr_maxidx 1 env')
+          val (env'',thm) =
+            unif try_hints_fun hints context ((name,Ts)::binders) bvars' (ts,tt) (incr_maxidx 1 env')
         in (env'',unify_abstraction context thm (Envir.norm_term env'' bvar) env'') end
     | (Abs(ns,Ts,ts),t) =>
         let
           val (bvar,bvars') = add_bvar Ts env bvars
           val env' = incr_maxidx 1 env
-          val (env',thm) = unif try_hints_fun hints context ((ns,Ts)::binders) bvars' (ts,(incr t)$Bound(0)) env'
-        in (env',unify_abstraction context thm bvar env') end
+          val (env'',thm) =
+            unif try_hints_fun hints context ((ns,Ts)::binders) bvars' (ts,(incr t)$Bound(0)) env'
+        in (env'',unify_abstraction context thm bvar env'') end
     | (t,Abs(nt,Tt,tt)) =>
         let
           val (bvar,bvars') = add_bvar Tt env bvars
           val env' = incr_maxidx 1 env
-          val (env',thm) = unif try_hints_fun hints context ((nt,Tt)::binders) bvars' ((incr t)$Bound(0),tt) env'
-        in (env',unify_abstraction context thm bvar env') end
+          val (env'',thm) =
+            unif try_hints_fun hints context ((nt,Tt)::binders) bvars' ((incr t)$Bound(0),tt) env'
+        in (env'',unify_abstraction context thm bvar env'') end
     | p => cases try_hints_fun hints context (binders,bvars,env,p)
 
 and cases try_hints_fun hints context (binders,bvars,env,(s,t)) =

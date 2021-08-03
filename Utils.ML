@@ -63,7 +63,7 @@ end
 
 fun pretty_prems ctxt env =
   let
-    fun get_trms (v, (T, t)) = (Var (v, T), t)
+    fun get_trms ((v, T), t) = (Var (v, T), t)
     val print = apply2 (pretty_term ctxt)
   in pretty_helper_p (print o get_trms) env
 end

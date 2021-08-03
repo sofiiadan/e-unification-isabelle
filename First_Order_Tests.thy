@@ -14,7 +14,6 @@ ML\<open>
 \<close>
 
 setup\<open>term_pat_setup\<close>
-
 declare [[log_level=500]]
 
 (* Symmetry *)
@@ -222,7 +221,7 @@ lemma h1[hints]: "X1 \<equiv> X2 n \<Longrightarrow> X2 \<equiv> f \<Longrightar
 
 ML\<open>
   val (t1,t2) = (@{term_pat "f n ::nat"}, @{term_pat "f m ::nat"});
-  single_neg (ctxt ()) hint_unif "" (t1,t2);\<close>
+  single_pos (ctxt ()) hint_unif "" (t1,t2);\<close>
 
 
 end

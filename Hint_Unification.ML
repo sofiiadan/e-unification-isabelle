@@ -2,7 +2,7 @@
 signature HINT_UNIFICATION =
 sig
 
-  type hint = (term * term) * (indexname * (typ * term)) list * thm
+  type hint = (term * term) * ((indexname * typ) * term) list * thm
   type unifT = Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
   type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * Envir.tenv
 
@@ -21,7 +21,7 @@ struct
 
 open Utils
 
-type hint = (term * term) * (indexname * (typ * term)) list * thm
+type hint = (term * term) * ((indexname * typ) * term) list * thm
 type unifT = Context.generic -> term * term -> Envir.env -> (Envir.env * thm)
 type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * Envir.tenv
 
@@ -57,10 +57,10 @@ fun env_lists (Envir.Envir {tenv,tyenv,...}) ctxt =
    map (fn (xi,(T,t)) => ((xi,T),Thm.cterm_of ctxt t)) (Vartab.dest tenv))
 
 (*converts Envir into var to cterm list without type (for infer_instantiate)*)
-fun envir_to_ct_map ctxt env = env_lists env ctxt |> snd |> map (fn ((a,_),c) => (a,c))
+fun envir_to_ct_map ctxt env =
+  env_lists env ctxt |> snd |> map (fn ((a,_),c) => (a,c))
 
-(*converts Envir into type and term environment*)
-fun envir_to_envs (Envir.Envir {tyenv,tenv,...}) = (tyenv,tenv)
+fun inf_instantiate ctxt env thm = infer_instantiate ctxt (envir_to_ct_map ctxt env) thm
 
 (*increase index of all Vars in term by n*)
 fun incr_idx n =
@@ -71,7 +71,7 @@ fun incr_idx n =
 
 (*increase indeces in a list of substitutions for a hint*)
 fun incr_indexes_prems index =
-  map (fn ((s,i),(T,t)) => ((s,i+index),(T,incr_idx index t)))
+  map (fn (((s,i),T),t) => (((s,i+index),T),incr_idx index t))
 
 (*generates a hint from a theorem,
   returns (SOME hint,"") if successful,
@@ -80,7 +80,7 @@ fun gen_hint thm = (SOME
   (case Thm.concl_of thm of
      Const ("Pure.eq",_) $ t1 $ t2 => (Envir.eta_contract t1,Envir.eta_contract t2),
   (Thm.prems_of thm
-     |> map (fn ((Const ("Pure.eq",_) $ Var (x,Tx) $ t)) => (x,(Tx,Envir.eta_contract t)))),
+     |> map (fn ((Const ("Pure.eq",_) $ Var x $ t)) => (x,Envir.eta_contract t))),
     Drule.eta_contraction_rule thm),"")
   handle Match => (NONE,Thm.derivation_name thm)
 
@@ -105,70 +105,70 @@ fun gen_hint_list ctxt =
 
 (*tries to apply a hint to solve E-unification of (t1\<equiv>?t2),
   Vars in hint are renamed to avoid naming conflicts during matching,
-  returns SOME (Envir,thm) if successfull,
-  unifies resulting unification problems using unif*)
-fun try_hint ctxt match unif
+  matches the pattern with (t1,t2) using match,
+  unifies resulting unification problems using unif,
+  returns SOME (env,thm) if successfull,*)
+fun try_hint context match unif
   (Envir.Envir {maxidx,tenv,tyenv}) (t1,t2)
-  (hint as ((h1_raw,h2_raw),hint_prems_raw,hint_thm_raw)) =
+  (hint as ((P_raw,Q_raw),hint_prems_raw,hint_thm_raw)) =
   let
-    val pctxt = Context.proof_of ctxt
+    val ctxt = Context.proof_of context
 
-    val _ = Log.debug pctxt (tracing_str_hint pctxt "Trying hint: ") hint
+    val _ = Log.debug ctxt (tracing_str_hint ctxt "Trying hint: ") hint
 
     (*increase indeces in hints to avoid naming conflicts*)
-    val (h1,h2) =
-      (incr_idx (maxidx+1) h1_raw,incr_idx (maxidx+1) h2_raw)
+    val (P,Q) =
+      (incr_idx (maxidx+1) P_raw,incr_idx (maxidx+1) Q_raw)
     val hint_prems =
       incr_indexes_prems (maxidx+1) hint_prems_raw
     val maxidx_new =
-      Int.max (maxidx,Int.max (maxidx_of_term h1,maxidx_of_term h2))
+      Int.max (maxidx,Int.max (maxidx_of_term P,maxidx_of_term Q))
     val hint_thm =
       Thm.incr_indexes (maxidx+1) hint_thm_raw
 
     (*match hint with unification pair, set flip if hint matches flipped*)
-    val pmatch = match (Context.theory_of ctxt)
-    fun inf_instantiate env thm = infer_instantiate pctxt (envir_to_ct_map pctxt env) thm
-    val unif_envs = (tyenv,tenv)
-    val ((match_tyenv,match_tenv),flip) = ((pmatch (h2,t2) (pmatch (h1,t1) unif_envs),false)
-      handle Pattern.MATCH => ((pmatch (h1,t2) (pmatch (h2,t1) unif_envs)),true))
-    val match_envir = Envir.Envir {tyenv=match_tyenv,tenv=match_tenv,maxidx=maxidx_new}
-    val hint_thm_matched = inf_instantiate match_envir hint_thm
+    val pmatch = match (Context.theory_of context)
+    val ((match_tyenv,match_tenv),flip) = ((pmatch (Q,t2) (pmatch (P,t1) (tyenv,tenv)),false)
+      handle Pattern.MATCH => ((pmatch (P,t2) (pmatch (Q,t1) (tyenv,tenv))),true))
+    val match_env =
+      Envir.Envir {tyenv=match_tyenv,tenv=match_tenv,maxidx=maxidx_new}
+    val hint_thm_matched =  
+      inf_instantiate ctxt match_env hint_thm
 
-    val _ = Log.debug pctxt tracing "Hint matches, now unifying hint premises..."
+    val _ = Log.debug ctxt tracing "Hint matches, now unifying hint premises..."
 
-    (*unify each hint premise, returning an (Envir,thm) list*)
-    fun prem_foldfun (v,(Tv,term)) envir_thms =
-      let val (envir,_) = hd envir_thms in
-        unif ctxt
-          (Envir.lookup match_envir (v,Tv) |> Option.valOf,
-           Envir.norm_term match_envir term) envir
-        :: envir_thms
+    (*unify each hint premise, returning an (env,thm) list*)
+    fun prem_foldfun (x,s) env_thms =
+      let val (envir,_) = hd env_thms in
+        unif context (Envir.norm_term match_env (Var x),Envir.norm_term match_env s) envir
+          :: env_thms
       end
-    val prem_envir_thms =
+    val prem_env_thms =
       fold prem_foldfun hint_prems
          [(Envir.Envir {maxidx=maxidx_new,tenv=match_tenv,tyenv=match_tyenv},hint_thm_matched)]
 
-    (*instantiate the theorems for the premises with the Envirs returned from last to first*)
+    (*instantiate the theorems for the premises with the envs returned from last to first*)
     val prem_thms_instd =
       fold_rev
-        (fn (env,thm) => fn thms_acc => (map (inf_instantiate env) thms_acc) @ [inf_instantiate env thm])
-        prem_envir_thms []
+        (fn (env,thm) => fn thms_acc =>
+            (map (inf_instantiate ctxt env) thms_acc) @ [inf_instantiate ctxt env thm])
+        prem_env_thms []
 
     (*discharge the hint premises using the instantiated premise theorems, flip theorem if needed*)
     val thm_return =
       (if flip then symmetric else I) (hd prem_thms_instd OF (tl prem_thms_instd))
-    val (envir_return,_) = hd prem_envir_thms
-    val _ = Log.debug pctxt (fn thm =>
-      tracing ("All premises unified, resulting theorem: "^Pretty.string_of (pretty_thm pctxt thm))) thm_return
+    val (envir_return,_) = hd prem_env_thms
+    val _ = Log.debug ctxt (fn thm =>
+      tracing ("All premises unified, resulting theorem: "^Pretty.string_of (pretty_thm ctxt thm))) thm_return
   in
     SOME (envir_return,thm_return)
   end
     handle
       Pattern.MATCH =>
-        (Log.debug (Context.proof_of ctxt) tracing "Hint does not match"; NONE)
+        (Log.debug (Context.proof_of context) tracing "Hint does not match"; NONE)
     | _ =>
-        let val pctxt = Context.proof_of ctxt in
-          (Log.debug pctxt (tracing_str_hint pctxt "Hint matches but cannot unify:") hint; NONE)
+        let val ctxt = Context.proof_of context in
+          (Log.debug ctxt (tracing_str_hint ctxt "Hint matches but cannot unify:") hint; NONE)
         end
 
 (*try to apply every hint from the hint list*)
@@ -178,9 +178,9 @@ fun try_hints ctxt match unif envir (t1,t2) =
     val _ = Log.debug pctxt (fn ts =>
       tracing ("Trying hints for subterms: "^Pretty.string_of (pretty_terms pctxt ts))) [t1,t2]
   in
-  (map Option.valOf
-    o filter Option.isSome
-    o map (try_hint ctxt match unif envir (t1,t2)))
+    map Option.valOf
+     o filter Option.isSome
+     o map (try_hint ctxt match unif envir (t1,t2))
   end
 
 
