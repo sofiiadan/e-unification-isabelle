@@ -95,7 +95,7 @@ fun gen_hint_list ctxt =
     val _ =
       if null thm_strs then ()
       else
-        Log.info ctxt tracing
+        Logger.info ctxt tracing
           ("These theorems cannot be used as hints: \n"^ String.concatWith ", " thm_strs)
   in
     hs |> filter Option.isSome
@@ -114,7 +114,7 @@ fun try_hint context match unif
   let
     val ctxt = Context.proof_of context
 
-    val _ = Log.debug ctxt (tracing_str_hint ctxt "Trying hint: ") hint
+    val _ = Logger.debug ctxt (tracing_str_hint ctxt "Trying hint: ") hint
 
     (*increase indeces in hints to avoid naming conflicts*)
     val (P,Q) =
@@ -135,7 +135,7 @@ fun try_hint context match unif
     val hint_thm_matched =  
       inf_instantiate ctxt match_env hint_thm
 
-    val _ = Log.debug ctxt tracing "Hint matches, now unifying hint premises..."
+    val _ = Logger.debug ctxt tracing "Hint matches, now unifying hint premises..."
 
     (*unify each hint premise, returning an (env,thm) list*)
     fun prem_foldfun (x,s) env_thms =
@@ -158,24 +158,24 @@ fun try_hint context match unif
     val thm_return =
       (if flip then symmetric else I) (hd prem_thms_instd OF (tl prem_thms_instd))
     val (envir_return,_) = hd prem_env_thms
-    val _ = Log.debug ctxt (fn thm =>
+    val _ = Logger.debug ctxt (fn thm =>
       tracing ("All premises unified, resulting theorem: "^Pretty.string_of (pretty_thm ctxt thm))) thm_return
   in
     SOME (envir_return,thm_return)
   end
     handle
       Pattern.MATCH =>
-        (Log.debug (Context.proof_of context) tracing "Hint does not match"; NONE)
+        (Logger.debug (Context.proof_of context) tracing "Hint does not match"; NONE)
     | _ =>
         let val ctxt = Context.proof_of context in
-          (Log.debug ctxt (tracing_str_hint ctxt "Hint matches but cannot unify:") hint; NONE)
+          (Logger.debug ctxt (tracing_str_hint ctxt "Hint matches but cannot unify:") hint; NONE)
         end
 
 (*try to apply every hint from the hint list*)
 fun try_hints ctxt match unif envir (t1,t2) =
   let
     val pctxt = Context.proof_of ctxt
-    val _ = Log.debug pctxt (fn ts =>
+    val _ = Logger.debug pctxt (fn ts =>
       tracing ("Trying hints for subterms: "^Pretty.string_of (pretty_terms pctxt ts))) [t1,t2]
   in
     map Option.valOf

@@ -88,11 +88,11 @@ val term_pat_setup =
 
 fun trace_unif_result ctxt (t1,t2) (env,thm) =
   let
-    val _ = Log.info ctxt tracing "Unification results:"
-    val _ = Log.info ctxt (tracing o Pretty.string_of o pretty_env_p ctxt o Envir.term_env) env
-    val _ = Log.info ctxt (tracing o Pretty.string_of o pretty_tyenv_p ctxt o Envir.type_env) env
-    val _ = Log.info ctxt (tracing o Pretty.string_of o pretty_thm ctxt) thm
-    val _ = Log.info ctxt (tracing o Pretty.string_of o pretty_terms ctxt)
+    val _ = Logger.info ctxt tracing "Unification results:"
+    val _ = Logger.info ctxt (tracing o Pretty.string_of o pretty_env_p ctxt o Envir.term_env) env
+    val _ = Logger.info ctxt (tracing o Pretty.string_of o pretty_tyenv_p ctxt o Envir.type_env) env
+    val _ = Logger.info ctxt (tracing o Pretty.string_of o pretty_thm ctxt) thm
+    val _ = Logger.info ctxt (tracing o Pretty.string_of o pretty_terms ctxt)
       [Envir.norm_term env t1,Envir.norm_term env t2]
   in () end
 
