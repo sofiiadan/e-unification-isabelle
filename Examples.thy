@@ -119,7 +119,7 @@ lemma h_opp [hints]:
 by simp
 
 ML\<open>
-  val t1 = @{term_pat "eval_adv (?y,[7,3,5])"};
+  val t1 = @{term_pat "eval_adv (?y,[3,5])"};
   val t2 = @{term_pat "1 * inverse 3 * 5::real"}\<close>
 
 ML\<open>
