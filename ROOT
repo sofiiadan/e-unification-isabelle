@@ -1,10 +1,10 @@
 chapter "First-Order Unification with Hints"
 
-session Fol_Unif_Hints = "Pure" +
+session Fol_Unif_Hints = "HOL" +
 
-sessions Spec_Check2
+  sessions Spec_Check2
 
-theories  
-  Hint_Unification
-  First_Order_Tests
-  Higher_Order_Tests
+  theories
+    Hint_Unification
+    First_Order_Tests
+    Higher_Order_Tests

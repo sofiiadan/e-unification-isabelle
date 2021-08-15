@@ -123,7 +123,7 @@ fun gen_term_typed ctxt tgen rand =
       (Proof_Context.set_mode Proof_Context.mode_schematic (Context.the_local_context ())) t,r)
     handle _ =>
       let val _ =
-        Log.debug pctxt tracing ("Generated term could not be properly typed: "^print_term pctxt t)
+        Logger.debug pctxt tracing ("Generated term could not be properly typed: "^print_term pctxt t)
       in gen_term_typed ctxt tgen r end
   end
 
