@@ -77,12 +77,14 @@ fun incr_indexes_prems index =
   returns (SOME hint,"") if successful,
   (NONE,thm_name) otherwise*)
 fun gen_hint thm = (SOME
-  (case Thm.concl_of thm of
-     Const ("Pure.eq",_) $ t1 $ t2 => (Envir.eta_contract t1,Envir.eta_contract t2),
+  (case Logic.dest_equals (Thm.concl_of thm) of
+     (t1,t2) => (Envir.eta_contract t1,Envir.eta_contract t2),
   (Thm.prems_of thm
-     |> map (fn ((Const ("Pure.eq",_) $ Var x $ t)) => (x,Envir.eta_contract t))),
+     |> map ((fn (Var x,t) => (x,Envir.eta_contract t)) o Logic.dest_equals)),
     Drule.eta_contraction_rule thm),"")
-  handle Match => (NONE,Thm.derivation_name thm)
+  handle
+    Match => (NONE,Thm.derivation_name thm)
+   |TERM _ => (NONE,Thm.derivation_name thm)
 
 (*generates a list of hints from named theorems "hints"*)
 fun gen_hint_list ctxt =
@@ -116,7 +118,7 @@ fun try_hint context match unif
 
     val _ = Log.debug ctxt (tracing_str_hint ctxt "Trying hint: ") hint
 
-    (*increase indeces in hints to avoid naming conflicts*)
+    (*increase indices in hints to avoid naming conflicts*)
     val (P,Q) =
       (incr_idx (maxidx+1) P_raw,incr_idx (maxidx+1) Q_raw)
     val hint_prems =

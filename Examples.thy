@@ -12,10 +12,43 @@ ML\<open>
 \<close>
 
 setup\<open>term_pat_setup\<close>
-declare [[log_level=500]]
+declare [[log_level=600]]
 
+(* Simple Recursive Hint Unification Examples *)
+(* 1 *)
+lemma suc_one [hints]:
+  "x \<equiv> 1 \<Longrightarrow> Suc x \<equiv> 2"
+by linarith
 
-(* Simple Reflexive Tactic *)
+lemma add_zero [hints]:
+  "y \<equiv> z \<Longrightarrow> x \<equiv> 0 \<Longrightarrow> (y::nat) \<equiv> z + x"
+by simp
+
+ML\<open>
+  val (t1,t2) = (@{term_pat "Suc (?n + 0)"},@{term_pat "2::nat"})\<close>
+  
+ML\<open>
+  val (env,thm) = hint_unif (gen_ctxt ()) (t1,t2) (Envir.empty 0);
+  trace_unif_result @{context} (t1,t2) (env,thm)\<close>
+
+(* 2 *)
+consts f :: "nat \<Rightarrow> nat" g :: "nat \<Rightarrow> nat" h :: "nat \<Rightarrow> nat"
+       a :: nat b :: nat
+       
+lemma [hints]:"X \<equiv> f \<Longrightarrow> X a \<equiv> X b"
+  sorry
+
+lemma [hints]:"X \<equiv> Y \<Longrightarrow> h (g X) \<equiv> g (h Y)"
+  sorry
+
+ML\<open>
+  val (t1,t2) = (@{term_pat "h (g (f a))"},@{term_pat "g (h (f b))"})\<close>
+  
+ML\<open>
+  val (env,thm) = hint_unif (gen_ctxt ()) (t1,t2) (Envir.empty 0);
+  trace_unif_result @{context} (t1,t2) (env,thm)\<close>
+
+(* Simple Reflexive Tactics *)
 
 datatype Expr = Var int | Op Expr Expr
 
@@ -49,7 +82,7 @@ ML\<open>
   trace_unif_result @{context} (t1,t2) (env,thm)\<close>
 
 
-(* Advanced Reflexive Tactic *)
+(* Advanced Reflexive Tactics *)
 datatype AdvExpr =
   EUnit
  |EVar nat
@@ -86,12 +119,11 @@ lemma h_opp [hints]:
 by simp
 
 ML\<open>
-  val t1 = @{term_pat "eval_adv (?y,[1,3,5])"};
-  val t2 = @{term_pat "3 * inverse 5 * 1::real"}\<close>
+  val t1 = @{term_pat "eval_adv (?y,[7,3,5])"};
+  val t2 = @{term_pat "1 * inverse 3 * 5::real"}\<close>
 
 ML\<open>
   val (env,thm) = hint_unif (gen_ctxt ()) (t1,t2) (Envir.empty 0);
   trace_unif_result @{context} (t1,t2) (env,thm)\<close>
-
 
 end

@@ -216,7 +216,7 @@ ML\<open>
 (*premise order: case where Xi depends on Xj with j>i cannot unify*)
 consts n::nat m::nat 
 
-lemma h1[hints]: "X1 \<equiv> X2 n \<Longrightarrow> X2 \<equiv> f \<Longrightarrow> X1 \<equiv> f m"
+lemma h1[hints]: "X1 \<equiv> X2 n \<Longrightarrow> X2 \<equiv> f \<Longrightarrow> X1 \<equiv> X2 m"
   sorry
 
 ML\<open>
