@@ -1,19 +1,9 @@
 structure Utils =
 struct
 
-fun flip f x y = f y x
+fun pretty_terms ctxt = Pretty.list "" "" o map (Syntax.pretty_term ctxt)
 
-
-val pwriteln = Pretty.writeln
-
-val pretty_term = Syntax.pretty_term
-fun pretty_terms ctxt trms = Pretty.block (Pretty.commas (map (pretty_term ctxt) trms))
-
-fun pretty_thm ctxt thm = pretty_term ctxt (Thm.prop_of thm)
-fun pretty_thms ctxt thms = Pretty.block (Pretty.commas (map (pretty_thm ctxt) thms))
-
-fun pretty_typ ctxt ty = Syntax.pretty_typ ctxt ty
-fun pretty_typs ctxt tys = Pretty.block (Pretty.commas (map (pretty_typ ctxt) tys))
+fun pretty_thm ctxt thm = Syntax.pretty_term ctxt (Thm.prop_of thm)
 
 fun pretty_helper_p aux prems =
   prems |> map aux
@@ -25,7 +15,7 @@ fun pretty_helper_env aux env =
       |> map aux
       |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " := ", s2])
       |> Pretty.enum "," "[" "]"
-      |> pwriteln
+      |> Pretty.writeln
 
 fun pretty_helper_env_p aux env =
   env |> Vartab.dest
@@ -36,21 +26,21 @@ fun pretty_helper_env_p aux env =
 fun pretty_tyenv ctxt tyenv =
   let
     fun get_typs (v, (s, T)) = (TVar (v, s), T)
-    val print = apply2 (pretty_typ ctxt)
+    val print = apply2 (Syntax.pretty_typ ctxt)
   in pretty_helper_env (print o get_typs) tyenv
 end
 
 fun pretty_tyenv_p ctxt tyenv =
   let
     fun get_typs (v, (s, T)) = (TVar (v, s), T)
-    val print = apply2 (pretty_typ ctxt)
+    val print = apply2 (Syntax.pretty_typ ctxt)
   in pretty_helper_env_p (print o get_typs) tyenv
 end
 
 fun pretty_env ctxt env =
   let
     fun get_trms (v, (T, t)) = (Var (v, T), t)
-    val print = apply2 (pretty_term ctxt)
+    val print = apply2 (Syntax.pretty_term ctxt)
   in pretty_helper_env (print o get_trms) env
 end
 
@@ -64,17 +54,13 @@ end
 fun pretty_prems ctxt env =
   let
     fun get_trms ((v, T), t) = (Var (v, T), t)
-    val print = apply2 (pretty_term ctxt)
+    val print = apply2 (Syntax.pretty_term ctxt)
   in pretty_helper_p (print o get_trms) env
 end
 
 fun pretty_hint ctxt (_,prems,thm) =
   Pretty.block
     [pretty_prems ctxt prems, Pretty.str " \<Longrightarrow> ", Syntax.pretty_term ctxt (Thm.concl_of thm)]
-
-fun tracing_hint ctxt = (tracing o Pretty.string_of o pretty_hint ctxt)
-
-fun tracing_str_hint ctxt str h = tracing (str ^ (Pretty.string_of (pretty_hint ctxt h)))
 
 val term_pat_setup =
   let val parser = Args.context -- Scan.lift Args.embedded_inner_syntax

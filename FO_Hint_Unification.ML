@@ -10,7 +10,7 @@ structure FO_Hint_Unif : FO_HINT_UNIFICATION =
 struct
 
 open Utils
-open Hint_Unif
+open Unification_Hints
 
 (*map function over bound indices, from pattern.ML*)
 fun mapbnd f =
@@ -125,12 +125,14 @@ let
     | (t1,Abs(_,_,t2))              => unif try_hints_fun envir (t2,(incr t1)$(Bound 0))
     | (Abs(_,_,t1),t2)              => unif try_hints_fun envir (t1,(incr t2)$(Bound 0))
     | _ => raise Pattern.Unif)
-   handle exn =>
-     let
-       val hint_match_list = (try_hints_fun context Pattern.match fo_unify_hints envir (t1,t2) hints)
-     in
-       if null hint_match_list then
-       raise exn else hd hint_match_list end
+    handle exn => if Exn.is_interrupt exn then Exn.reraise exn else 
+      let
+        val hint_results = try_hints_fun context Pattern.match fo_unify_hints hints envir (t1, t2)
+      in
+        case Seq.pull hint_results of 
+          NONE => raise exn
+        | SOME (res,_) => res
+      end
 in
   let val (sigma,thm) =
     unif try_hints_fun
@@ -146,7 +148,6 @@ end
 and fo_unify_hints ctxt = fo_unification try_hints (gen_hint_list (Context.proof_of ctxt)) ctxt
 
 (*first-order unification without hints*)
-and fo_unify ctxt = fo_unification (K o K o K o K o K o K []) [] ctxt;
-
+and fo_unify ctxt = fo_unification (K o K o K o K o K o K Seq.empty) [] ctxt;
 
 end

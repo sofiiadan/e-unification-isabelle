@@ -1,6 +1,6 @@
 theory Higher_Order_Tests
 imports
-  Hint_Unification
+  Unification_Hints
 begin
 
 ML_file \<open>Test.ML\<close>

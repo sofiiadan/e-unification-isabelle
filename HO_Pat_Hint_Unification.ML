@@ -11,7 +11,7 @@ end
 structure HO_Pat_Hint_Unif : HO_PAT_HINT_UNIFICATION =
 struct
 
-open Hint_Unif
+open Unification_Hints
 
 val unify_trace_failure = Config.declare_bool ("unify_trace_failure", \<^here>) (K false);
 
@@ -298,15 +298,17 @@ and cases try_hints_fun hints context (binders,bvars,env,(s,t)) =
       | ((Bound i,_),(Const(c,_),_))   => (clashB context binders i c; raise Pattern.Unif)
       | ((Bound i,_),(Free(f,_),_))    => (clashB context binders i f; raise Pattern.Unif))
   handle exn =>
+    if Exn.is_interrupt exn then Exn.reraise exn else 
     let
-      val hint_results = try_hints_fun context Pattern.match h_unify env (s,t) hints
+      val hint_results = try_hints_fun context Pattern.match h_unify hints env (s, t)
     in
-      if null hint_results then
-      raise exn else hd hint_results
+      case Seq.pull hint_results of 
+        NONE => raise exn
+      | SOME (res,_) => res
     end
 
 (*unifies ss with ts, instantiates reflexivity for base of fold with t*)
-and fold_env_thm try_hints_fun hints context (env,binders,bvars,t,ss,ts)=
+and fold_env_thm try_hints_fun hints context (env,binders,bvars,t,ss,ts) =
       fold
         (fn ts =>
           fn (envir,thm) =>
@@ -339,11 +341,10 @@ and flexrigid context (params as (env,binders,F,Fty,is,t)) =
 
 (*higher-order pattern unification with hints from context*)
 and h_unify context =
-  unif try_hints (Hint_Unif.gen_hint_list (Context.proof_of context)) context [] []
+  unif try_hints (gen_hint_list (Context.proof_of context)) context [] []
 
 (*higher-order pattern unification without hints*)
 and unify context =
-  unif (K o K o K o K o K o K []) [] context [] [];
-
+  unif (K o K o K o K o K o K Seq.empty) [] context [] [];
 
 end;

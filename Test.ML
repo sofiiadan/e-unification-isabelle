@@ -76,7 +76,7 @@ fun test_group_idxs test unif idxs gen_name gen =
     (Spec_Check_Random.new ())
 
 fun print_term ctxt t =
-  Pretty.string_of (pretty_term ctxt t)
+  Pretty.string_of (Syntax.pretty_term ctxt t)
 
 fun print_termtup ctxt (t1,t2) =
   pretty_terms (Context.proof_of ctxt) [t1,t2]

@@ -17,9 +17,10 @@ sig
   val TRACE : loglevel
   val ALL   : loglevel
   val log_level_config : loglevel Config.T
-  (*general logging function; prints message using print_f if current log_level \<ge> lvl*)
+  (*general logging function; prints message using passed function if the
+    context's current log_level is greater or equal than the passed level*)
   val log : Proof.context -> loglevel -> ('a -> unit) -> 'a -> unit
-  (* logging functions for different log levels *)
+  (*logging functions for different log levels*)
   val fatal : Proof.context -> ('a -> unit) -> 'a -> unit
   val err : Proof.context -> ('a -> unit) -> 'a -> unit
   val warn : Proof.context -> ('a -> unit) -> 'a -> unit
@@ -43,7 +44,8 @@ val TRACE = 600
 val ALL   = 1000
 
 (*setup for config value log_level*)
-val log_level_config = Attrib.setup_config_int \<^binding>\<open>log_level\<close> (K INFO)
+val log_level_config =
+  Attrib.setup_config_int \<^binding>\<open>log_level\<close> (K INFO)
 
 fun log ctxt log_level print_f =
   if log_level < Config.get ctxt log_level_config then print_f else K ()
