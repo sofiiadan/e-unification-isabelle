@@ -1,4 +1,4 @@
-signature HO_PAT_HINT_UNIFICATION =
+signature HIGHER_ORDER_PATTERN_UNIFICATION =
 sig
   
   val unify_trace_failure: bool Config.T
@@ -8,7 +8,7 @@ sig
 
 end
 
-structure HO_Pat_Hint_Unif : HO_PAT_HINT_UNIFICATION =
+structure Higher_Order_Pattern_Unification : HIGHER_ORDER_PATTERN_UNIFICATION =
 struct
 
 open Unification_Hints

@@ -8,13 +8,23 @@ ML_file \<open>Test.ML\<close>
 ML\<open>
   open Test
   open Utils
-  val hint_unif = FO_Hint_Unif.fo_unify_hints
-  val std_unif = FO_Hint_Unif.fo_unify
+  val hint_unif = First_Order_Unification.unify_hints
+  val std_unif = First_Order_Unification.unify
   val ctxt = Context.the_generic_context
 \<close>
 
 setup\<open>term_pat_setup\<close>
-declare [[log_level=500]]
+
+ML\<open>list_pos (ctxt ()) hint_unif "Var/Free, TVar/TFree combinations unify"
+  [
+    (Var(("A",0),TVar(("'a",0),[])),Free("A",TFree("'a",[]))),
+    (Var(("A",0),TVar(("'a",0),[])), Var(("A",0),TFree("'a",[]))),
+    (Var(("A",0),TVar(("'a",1),[])),Var(("B",0),TVar(("'a",0),[]))),
+    (Var(("A",0),TVar(("'a",0),[])),Var(("A",0),TVar(("'b",0),[]))),
+    (Var(("A",0),TFree("'a",[])),Free("A",TVar(("'a",0),[]))),
+    (Free("A",TFree("'a",[])),Free("A",TVar(("'a",0),[])))
+  ]
+\<close>
 
 (* Symmetry *)
 ML\<open>test_group symmetry std_unif "Free/Var" free_var_gen\<close>
@@ -138,12 +148,14 @@ lemma suc_x_4 [hints]: "Suc x \<equiv> 4"
   by (simp add:x_def)
 lemma suc3 [hints]: "X \<equiv> 3 \<Longrightarrow> Suc X \<equiv> 4"
   by linarith
-ML\<open>single_pos (ctxt ()) hint_unif "Suc x = 4 with multiple matching hints, only second one solves"
+ML\<open>single_pos (ctxt ()) hint_unif
+  "Suc x = 4 with multiple matching hints, only second one solves"
   (t1,t2)\<close>
 
 (* recursive hint tests *)
 
-(*Suc (Suc 0) = 2*)
+declare [[log_level=500]]
+
 ML\<open>
   val (t1,t2) = (@{term_pat "Suc (Suc ?X) ::nat"},@{term_pat "2::nat"});
   single_neg (ctxt ()) hint_unif "Suc ?x = 3 without hint" (t1,t2)\<close>
@@ -209,7 +221,7 @@ lemma [hints]:"X \<equiv> Y \<Longrightarrow> f2 X \<equiv> g2 Y"
   sorry
 
 ML\<open>
-  val (t1,t2) = (@{term_pat "f2 (f (g 0)) ::nat"}, @{term_pat "g2 (f (g 0)) ::nat"});
+  val (t1,t2) = (@{term_pat "f2 (g (f 0)) ::nat"}, @{term_pat "g2 (f (g 0)) ::nat"});
   single_pos (ctxt ()) hint_unif "" (t1,t2)\<close>
 
 

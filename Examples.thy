@@ -1,6 +1,6 @@
 theory Examples
 imports
-  Hint_Unification
+  Unification_Hints
   Complex_Main
 begin
 

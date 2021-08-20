@@ -48,7 +48,7 @@ val log_level_config =
   Attrib.setup_config_int \<^binding>\<open>log_level\<close> (K INFO)
 
 fun log ctxt log_level print_f =
-  if log_level < Config.get ctxt log_level_config then print_f else K ()
+  if log_level <= Config.get ctxt log_level_config then print_f else K ()
 
 fun fatal ctxt = log ctxt FATAL
 fun err ctxt = log ctxt ERR

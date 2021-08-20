@@ -123,7 +123,7 @@ fun gen_term_typed ctxt tgen rand =
       (Proof_Context.set_mode Proof_Context.mode_schematic (Context.the_local_context ())) t,r)
     handle _ =>
       let val _ =
-        Logger.debug pctxt tracing ("Generated term could not be properly typed: "^print_term pctxt t)
+        Logger.trace pctxt tracing ("Generated term could not be properly typed: "^print_term pctxt t)
       in gen_term_typed ctxt tgen r end
   end
 
@@ -183,16 +183,30 @@ fun sigma_unchanged ctxt unif ts =
 val terms_from_thm =
   (fn (Const ("Pure.eq",_) $ t1 $ t2) => (t1,t2)) o Thm.concl_of
 
+fun instantiate ctxt env thm =
+  let 
+    val tyenv = Envir.type_env env
+    val tyenv_dest = Vartab.dest tyenv
+    val tenv_dest =
+      Envir.term_env env
+      |> Vartab.map (Envir.norm_type tyenv |> apfst |> K)
+      |> Vartab.dest
+    fun prep_trm ctxt (x, (T, t)) = ((x, T), Thm.cterm_of ctxt t)
+    fun prep_ty ctxt (x, (S, ty)) = ((x, S), Thm.ctyp_of ctxt ty)
+    val inst = (map (prep_ty ctxt) tyenv_dest, map (prep_trm ctxt) tenv_dest)
+  in Drule.instantiate_normalize inst thm end
+
 (*checks if the theorem resulting from unif (t1,t2) unifies t1 and t2*)
-fun theorem_correct ctxt unif (t1,t2) =
+fun theorem_correct context unif (t1,t2) =
   let
-    val (sigma,thm) = unif ctxt (t1,t2) empty_env
-    val (t1',t2') = (Envir.norm_term sigma t1,Envir.norm_term sigma t2)
-    val (lhs,rhs) = terms_from_thm thm
-    val pctxt = (Context.proof_of ctxt)
+    val ctxt = Context.proof_of context
+    val (sigma,thm) = unif context (t1,t2) empty_env
+    val (t1',t2') = (Envir.norm_term sigma t1, Envir.norm_term sigma t2)
+    val thm' = instantiate ctxt sigma thm
+    val (lhs,rhs) = terms_from_thm thm'
   in
-    (terms_match_size_eq pctxt (lhs,t1') andalso terms_match_size_eq pctxt (rhs,t2'))
-    orelse (terms_match_size_eq pctxt (lhs,t2') andalso terms_match_size_eq pctxt (rhs,t1'))
+    (terms_match_size_eq ctxt (lhs,t1') andalso terms_match_size_eq ctxt (rhs,t2'))
+    orelse (terms_match_size_eq ctxt (lhs,t2') andalso terms_match_size_eq ctxt (rhs,t1'))
   end handle _ => false
 
 fun list_pos ctxt unif name l =

@@ -11,7 +11,7 @@ named_theorems hints
 
 ML_file\<open>unifier.ML\<close>
 ML_file\<open>unification_hints.ML\<close>
-ML_file\<open>FO_Hint_Unification.ML\<close>
-ML_file "HO_Pat_Hint_Unification.ML"
+ML_file\<open>first_order_unification.ML\<close>
+ML_file "higher_order_pattern_unification.ML"
 
 end

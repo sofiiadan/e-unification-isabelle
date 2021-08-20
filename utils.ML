@@ -88,5 +88,19 @@ fun trace_test_result ctxt ts unif =
     val sigma = unif ctxt ts (Envir.empty 0)
   in trace_unif_result pctxt ts sigma end
 
+fun norm_thm ctxt env =
+  let 
+    val tyenv = Envir.type_env env
+    val tyenv_dest = Vartab.dest tyenv
+    (*normalise the types in the type environment*)
+    val tenv_dest =
+      Envir.term_env env
+      |> Vartab.map (Envir.norm_type tyenv |> apfst |> K)
+      |> Vartab.dest
+    fun prep_trm ctxt (x, (T, t)) = ((x, T), Thm.cterm_of ctxt t)
+    fun prep_ty ctxt (x, (S, ty)) = ((x, S), Thm.ctyp_of ctxt ty)
+    val inst = (map (prep_ty ctxt) tyenv_dest, map (prep_trm ctxt) tenv_dest)
+  in Drule.instantiate_normalize inst end
+
 end
 
