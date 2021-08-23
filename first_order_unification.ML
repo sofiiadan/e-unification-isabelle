@@ -6,8 +6,8 @@ First-order unification with hints (see unification_hints.ML).
 signature FIRST_ORDER_UNIFICATION =
 sig
 
-  val unify : Unifier_Types.unifier 
-  val unify_hints : Unifier_Types.unifier
+  val unify : Unification_Types.unifier 
+  val unify_hints : Unification_Types.unifier
 
 end
 
@@ -17,10 +17,10 @@ struct
 structure Hints = Unification_Hints
 
 (*occurs check*)
-fun contains_var v (Var (x, _)) = x = v
-  | contains_var v (t1 $ t2) = contains_var v t1 orelse contains_var v t2
-  | contains_var v (Abs (_, _, t)) = contains_var v t
-  | contains_var _ _ = false
+fun occurs v (Var (x, _)) = x = v
+  | occurs v (t1 $ t2) = occurs v t1 orelse occurs v t2
+  | occurs v (Abs (_, _, t)) = occurs v t
+  | occurs _ _ = false
 
 fun unify_core try_hints_fun hints hints_unifier context (t1, t2)
   (Envir.Envir {tenv, tyenv, maxidx}) =
@@ -53,7 +53,7 @@ let
               (*unifying x=x ==> no new term substitution necessery*)
               if is_Var t2 andalso x = fst (dest_Var t2) then I
               (*open term and occurs check*)
-              else if Term.is_open t2 orelse contains_var x t2 then
+              else if Term.is_open t2 orelse occurs x t2 then
                 (Logger.debug ctxt
                   (fn ts => Pretty.block [
                       Pretty.str
@@ -94,7 +94,7 @@ let
           try_hints_fun context Pattern.match hints_unifier hints env (t1, t2)
       in
         case Seq.pull hint_results of 
-          SOME (res,_) => res
+          SOME (res, _) => res
         | NONE =>
             (Logger.debug ctxt
               (fn ts => Pretty.block [

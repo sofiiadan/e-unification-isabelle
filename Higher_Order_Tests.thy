@@ -8,12 +8,12 @@ ML_file \<open>Test.ML\<close>
 ML\<open>
   open Test
   open Utils
-  val hint_unif = Higher_Order_Pattern_Unification.h_unify
+  val hint_unif = Higher_Order_Pattern_Unification.unify_hints
   fun std_unif ctxt ts env = (Pattern.unify ctxt ts env, @{thm Pure.reflexive})
   val ctxt = Context.the_generic_context\<close>
 
 setup\<open>term_pat_setup\<close>
-declare [[log_level=500]]
+declare [[log_level=400]]
 
 (* Symmetry *)
 ML\<open>test_group symmetry std_unif "Free/Var" free_var_gen\<close>
@@ -207,6 +207,10 @@ ML\<open>
   val (t1,t2) = (@{term_pat "\<lambda>x. r x ?Y"},@{term_pat "\<lambda>x. r x ?Y"});
   trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
+ML\<open>
+  val (t1,t2) = (@{term_pat "\<lambda>x. (x, (\<lambda> y. (y, \<lambda> z. ?x)))"},@{term_pat "\<lambda>x. (x, (\<lambda> y. (y, \<lambda> z. f)))"});
+  trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
+
 lemma [hints]:"X\<equiv>(0::nat) \<Longrightarrow> Y\<equiv>Z \<Longrightarrow> X + Y \<equiv>Z"
 by linarith
 ML\<open>
@@ -238,8 +242,9 @@ ML\<open>
   val (t1,t2) = (@{term_pat "A (\<lambda>u. B (?x,C), C)"},@{term_pat "id (A (\<lambda>u. ?y, C+0))"});
   trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
 
-(*Bound case not working yet*)
 ML\<open>
-  val (t1,t2) = (@{term_pat "\<lambda>x. (\<lambda>x. 0+x::nat)"},@{term_pat "\<lambda>x. (\<lambda>x. x::nat)"});\<close>
+  val (t1,t2) = (@{term_pat "\<lambda>x. 0 + x::nat"},@{term_pat "\<lambda>x. x::nat"});
+  trace_test_result (ctxt()) (t1,t2) hint_unif\<close>
+
 
 end

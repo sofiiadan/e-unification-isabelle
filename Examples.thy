@@ -7,12 +7,12 @@ begin
 
 ML\<open>
   open Utils
-  val hint_unif = HO_Pat_Hint_Unif.h_unify;
+  val hint_unif = Higher_Order_Pattern_Unification.unify_hints;
   val gen_ctxt = Context.the_generic_context
 \<close>
 
 setup\<open>term_pat_setup\<close>
-declare [[log_level=600]]
+declare [[log_level=500]]
 
 (* Simple Recursive Hint Unification Examples *)
 (* 1 *)
@@ -75,7 +75,7 @@ by simp
 
 ML\<open>
   val t1 = @{term_pat "eval ?y"};
-  val t2 = @{term_pat "a + (b + c) ::int"}\<close>
+  val t2 = @{term_pat "1 + (2 + 3) ::int"}\<close>
 
 ML\<open>
   val (env,thm) = hint_unif (gen_ctxt ()) (t1,t2) (Envir.empty 0);
@@ -84,16 +84,16 @@ ML\<open>
 
 (* Advanced Reflexive Tactics *)
 datatype AdvExpr =
-  EUnit
- |EVar nat
- |EMult AdvExpr AdvExpr
- |EOpp AdvExpr
+    EUnit
+  | EVar nat
+  | EMult AdvExpr AdvExpr
+  | EOpp AdvExpr
 
 fun eval_adv :: "AdvExpr \<times> real list \<Rightarrow> real" where
-  "eval_adv (EUnit,\<Gamma>) = 1"
- |"eval_adv (EVar i,\<Gamma>) = \<Gamma>!i"
- |"eval_adv (EMult ex1 ex2,\<Gamma>) = eval_adv (ex1,\<Gamma>) * eval_adv (ex2,\<Gamma>)"
- |"eval_adv (EOpp ex,\<Gamma>) = inverse (eval_adv (ex,\<Gamma>))"
+    "eval_adv (EUnit,\<Gamma>) = 1"
+  | "eval_adv (EVar i,\<Gamma>) = \<Gamma>!i"
+  | "eval_adv (EMult ex1 ex2,\<Gamma>) = eval_adv (ex1,\<Gamma>) * eval_adv (ex2,\<Gamma>)"
+  | "eval_adv (EOpp ex,\<Gamma>) = inverse (eval_adv (ex,\<Gamma>))"
 
 
 (*hints for heap lookup*)

@@ -13,12 +13,13 @@ sig
   val reflexive : cterm -> thm
   val combination : thm -> thm -> thm
   val symmetric : thm -> thm
+  val abstract_rule : string -> cterm -> thm -> thm
+
   val reflexive_term : Context.generic -> term -> thm
-  val unify_abstraction : Context.generic -> thm -> term -> Envir.env -> thm
 
   val gen_hint_list : Proof.context -> hint list
 
-  val try_hints : Context.generic -> matchT -> Unifier_Types.unifier ->
+  val try_hints : Context.generic -> matchT -> Unification_Types.unifier ->
     hint list -> Envir.env -> term * term -> (Envir.env * thm) Seq.seq
 
 end
@@ -32,30 +33,13 @@ type hint = (term * term) * ((indexname * typ) * term) list * thm
 
 type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * Envir.tenv
 
-(*theorems reflexivity, combination and symmetry*)
 val reflexive = Thm.reflexive
 val combination = Thm.combination
 val symmetric = Thm.symmetric
-val abstraction = Thm.axiom @{theory} "Pure.abstract_rule"
+val abstract_rule = Thm.abstract_rule
 
-fun reflexive_term ctxt t = reflexive (Thm.cterm_of (Context.proof_of ctxt) t)
-
-(*unifies the abstraction theorem with a theorem for a given var*)
-fun unify_abstraction ctxt thm var env =
-  let
-    val pctxt = Context.proof_of ctxt
-    val abstr = Thm.incr_indexes (Envir.maxidx_of env+1) abstraction
-    val abstr_prem_t = Thm.prems_of abstr |> hd
-    val thm_forall = forall_intr_list [Thm.cterm_of pctxt var] thm
-    val thm_forall_t = Thm.concl_of thm_forall
-    val unif_env = Pattern.unify ctxt (abstr_prem_t,thm_forall_t) env
-    val inst_list = map
-      (fn (idxn,(_,t)) => (idxn,Thm.cterm_of pctxt (Envir.norm_term unif_env t)))
-      (Envir.term_env unif_env |> Vartab.dest)
-    val abstr_inst = Drule.infer_instantiate pctxt inst_list abstr
-  in
-    abstr_inst OF [thm]
-  end
+fun reflexive_term context t = 
+  reflexive (Thm.cterm_of (Context.proof_of context) t)
 
 fun incr_idx n = Logic.incr_indexes ([], [], n)
 
