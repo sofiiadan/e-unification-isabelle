@@ -19,27 +19,38 @@ sig
 
   val gen_hint_list : Proof.context -> hint list
 
-  val try_hints : Context.generic -> matchT -> Unification_Types.unifier ->
-    hint list -> Envir.env -> term * term -> (Envir.env * thm) Seq.seq
+  val try_hints : Context.generic -> matchT -> Unification_Types.unifier -> hint list ->
+    Envir.env -> term * term -> (Envir.env * thm) Seq.seq
 
 end
 
 structure Unification_Hints : UNIFICATION_HINTS =
 struct
 
-open Utils
-
 type hint = (term * term) * ((indexname * typ) * term) list * thm
 
 type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * Envir.tenv
+
+fun pretty_hint ctxt (_, prems, thm) =
+  let 
+    fun pretty_prems ctxt prems =
+      map (apply2 (Syntax.pretty_term ctxt) o apfst Var) prems
+      |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " ≡ ", s2])
+      |> Pretty.list "⟦" "⟧"
+  in
+    Pretty.block [
+      pretty_prems ctxt prems,
+      Pretty.str " ⟹ ",
+      Syntax.pretty_term ctxt (Thm.concl_of thm)
+    ]
+  end
 
 val reflexive = Thm.reflexive
 val combination = Thm.combination
 val symmetric = Thm.symmetric
 val abstract_rule = Thm.abstract_rule
 
-fun reflexive_term context t = 
-  reflexive (Thm.cterm_of (Context.proof_of context) t)
+fun reflexive_term context t = reflexive (Thm.cterm_of (Context.proof_of context) t)
 
 fun incr_idx n = Logic.incr_indexes ([], [], n)
 
@@ -107,12 +118,11 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
         val pmatch = match (Context.theory_of context)
         val env = (tyenv, tenv)
       in
-        (pmatch (P,t1) env |> pmatch (Q,t2), false)
+        (pmatch (P, t1) env |> pmatch (Q,t2), false)
         (*match against symmetric hint if first match fails*)
         handle Pattern.MATCH => (pmatch (Q,t1) env |> pmatch (P,t2), true)
       end
-    val match_env =
-      Envir.Envir {tyenv=match_tyenv, tenv=match_tenv, maxidx=maxidx_new}
+    val match_env = Envir.Envir {tyenv=match_tyenv, tenv=match_tenv, maxidx=maxidx_new}
 
     val _ = Logger.debug ctxt
       (fn hint =>
@@ -123,29 +133,25 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
 
     (*unify each hint premise and collect the theorems while iteratively
       extending the environment*)
-    fun prem_unif (v, s) (env, thms) =
-      unif context (Var v, s) env ||> (fn thm => thm::thms)
+    fun prem_unif (v, s) (env, thms) = unif context (Var v, s) env ||> (fn thm => thm :: thms)
     val (env_res, prem_env_thms) = fold prem_unif hint_prems (match_env, [])
 
     (*instantiate the theorems*)
-    val prem_env_thms_inst = map (norm_thm ctxt env_res) prem_env_thms |> rev
-    val thm_inst = norm_thm ctxt env_res hint_thm
+    val prem_env_thms_inst = map (Unification_Util.norm_thm ctxt env_res) prem_env_thms |> rev
+    val thm_inst = Unification_Util.norm_thm ctxt env_res hint_thm
     (*discharge the hint premises; flip the theorem if needed*)
-    val thm_res =
-      (if flip then symmetric else I) (thm_inst OF prem_env_thms_inst)
+    val thm_res = (if flip then symmetric else I) (thm_inst OF prem_env_thms_inst)
   in
     Logger.debug ctxt
       (fn thm =>
         Pretty.block [Pretty.str "All premises unified; resulting theorem: ",
-          pretty_thm ctxt thm]
+          Unification_Util.pretty_thm ctxt thm]
         |> Pretty.writeln)
       thm_res;
     SOME (env_res, thm_res)
   end
     handle
-      Pattern.MATCH =>
-        (Logger.trace (Context.proof_of context) tracing "Hint does not match";
-        NONE)
+      Pattern.MATCH => (Logger.trace (Context.proof_of context) tracing "Hint does not match"; NONE)
     | exn => if Exn.is_interrupt exn then Exn.reraise exn else 
         (Logger.debug (Context.proof_of context) writeln
           "Hint matches but cannot unify premises";
@@ -156,11 +162,11 @@ fun try_hints context match unif hints envir (t1,t2) =
   let val ctxt = Context.proof_of context
   in
     Logger.debug ctxt
-      (fn ts =>
+      (fn _ =>
         Pretty.block [Pretty.str "Trying unification hints for ",
-          pretty_terms ctxt ts]
+          Unification_Util.pretty_terms ctxt [t1, t2]]
         |> Pretty.writeln)
-      [t1,t2];
+      ();
     Seq.of_list hints
     |> Seq.map_filter (try_hint context match unif envir (t1,t2))
   end

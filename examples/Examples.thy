@@ -6,12 +6,34 @@ begin
 
 
 ML\<open>
-  open Utils
+  val t =
+    Var (("v", 0), TFree ("'a", []) --> TFree ("'b", [])) $
+      Var (("w", 0), TFree ("'a", []))
+  val s =
+    Var (("x", 0), TFree ("'a", []) --> TFree ("'b", [])) $
+      Var (("y", 0), TFree ("'a", []))
+  (*returns empty environment and no unification error*)
+  val env = 
+    Unify.unifiers ((Context.the_generic_context ()), Envir.init, [(t,s)]) |> Seq.hd |> fst
+  
+  (*returns correct unifier*)
+  val s' = (Var (("x", 0), TFree ("'b", [])))
+  val env' = 
+    Unify.unifiers ((Context.the_generic_context ()), Envir.init, [(t, s')]) |> Seq.hd |> fst
+\<close>
+
+ML\<open>
+  Theory.setup (
+    ML_Antiquotation.inline_embedded \<^binding>\<open>term_pat\<close>
+    (Args.term_pattern >> (ML_Syntax.atomic o ML_Syntax.print_term)))
+\<close>
+
+ML\<open>
+  open Unification_Util
   val hint_unif = Higher_Order_Pattern_Unification.unify_hints;
   val gen_ctxt = Context.the_generic_context
 \<close>
 
-setup\<open>term_pat_setup\<close>
 declare [[log_level=500]]
 
 (* Simple Recursive Hint Unification Examples *)

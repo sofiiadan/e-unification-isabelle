@@ -1,11 +1,11 @@
 theory Unification_Hints
 imports
   Main
-  Spec_Check2.Spec_Check
+  SpecCheck.SpecCheck
 begin
 
 ML_file\<open>logger.ML\<close>
-ML_file\<open>utils.ML\<close>
+ML_file\<open>util.ML\<close>
 
 named_theorems hints
 

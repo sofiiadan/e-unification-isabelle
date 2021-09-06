@@ -1,3 +1,0 @@
-[submodule "spec_check"]
-	path = spec_check
-	url = git@gitlab.lrz.de:ga85wir/spec_check.git
