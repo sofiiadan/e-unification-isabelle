@@ -8,8 +8,6 @@ sig
 
   type hint = (term * term) * ((indexname * typ) * term) list * thm
 
-  type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * Envir.tenv
-
   val reflexive : cterm -> thm
   val combination : thm -> thm -> thm
   val symmetric : thm -> thm
@@ -19,8 +17,8 @@ sig
 
   val gen_hint_list : Proof.context -> hint list
 
-  val try_hints : Context.generic -> matchT -> Unification_Types.unifier -> hint list ->
-    Envir.env -> term * term -> (Envir.env * thm) Seq.seq
+  val try_hints : Context.generic -> Unification_Types.matcher -> Unification_Types.unifier ->
+    hint list -> Envir.env -> term * term -> (Envir.env * thm) Seq.seq
 
 end
 
@@ -28,8 +26,6 @@ structure Unification_Hints : UNIFICATION_HINTS =
 struct
 
 type hint = (term * term) * ((indexname * typ) * term) list * thm
-
-type matchT = theory -> term * term -> Type.tyenv * Envir.tenv -> Type.tyenv * Envir.tenv
 
 fun pretty_hint ctxt (_, prems, thm) =
   let 
@@ -115,12 +111,14 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
     (*match hint with unification pair, set flip if hint matches flipped*)
     val ((match_tyenv, match_tenv), flip) =
       let
-        val pmatch = match (Context.theory_of context)
+        val match' = match (Context.theory_of context)
         val env = (tyenv, tenv)
       in
-        (pmatch (P, t1) env |> pmatch (Q,t2), false)
+        (match' (P, t1) env |> match' (Q,t2), false)
         (*match against symmetric hint if first match fails*)
-        handle Pattern.MATCH => (pmatch (Q,t1) env |> pmatch (P,t2), true)
+        (*TODO: uncomment*)
+        (* handle Unification_Types.MATCH => (match' (Q,t1) env |> match' (P,t2), true) *)
+        handle Pattern.MATCH => (match' (Q,t1) env |> match' (P,t2), true)
       end
     val match_env = Envir.Envir {tyenv=match_tyenv, tenv=match_tenv, maxidx=maxidx_new}
 
@@ -151,6 +149,9 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
     SOME (env_res, thm_res)
   end
     handle
+      (*TODO: uncomment*)
+      (* Unification_Types.MATCH =>
+        (Logger.trace (Context.proof_of context) tracing "Hint does not match"; NONE) *)
       Pattern.MATCH => (Logger.trace (Context.proof_of context) tracing "Hint does not match"; NONE)
     | exn => if Exn.is_interrupt exn then Exn.reraise exn else 
         (Logger.debug (Context.proof_of context) writeln

@@ -41,13 +41,14 @@ fun thm_correct context unif tp =
     (* val _ = apply2 (Pretty.writeln o Syntax.pretty_term ctxt) tp *)
     (* val _ = apply2 (Pretty.writeln o Syntax.pretty_typ ctxt o fastype_of) tp *)
     (* val _ = writeln "go" *)
-    val (sigma, thm) = unif context tp Envir.init
+    val (sigma, thm) = unif context tp (Unification_Util.empty_envir tp)
     (* val _ = writeln "now normalising" *)
     (* val _  = Unification_Util.pretty_env ctxt sigma |> Pretty.writeln *)
     val (t1, t2) = apply2 (Envir.norm_term sigma) tp
     val thm' = Unification_Util.norm_thm ctxt sigma thm
     (* val _ = writeln "done" *)
     val (lhs, rhs) = Thm.concl_of thm' |> Logic.dest_equals
+    (* val _ = @{print} (lhs, rhs) *)
   in List.all Envir.aeconv [(t1, lhs), (t2, rhs)] end
 
 fun show_termpair context =
@@ -62,7 +63,7 @@ fun check gen name prop context =
   SpecCheck.check_shrink (show_termpair context) shrink_termpair 
     gen name prop (Context.proof_of context)
 
-fun terms_unify unif context ts = can (unif context ts) Envir.init
+fun terms_unify unif context tp = can (unif context tp) (Unification_Util.empty_envir tp)
 
 fun check_thm gen name unif context =
   check gen ("Theorem correctness: " ^ name)
@@ -71,5 +72,15 @@ fun check_thm gen name unif context =
 
 fun check_list tests name prop context =
   SpecCheck.check_list (show_termpair context) tests name prop (Context.proof_of context)
+
+fun check_unit_tests_hints tests should_succeed hints name unif context _ = 
+  let val context' = fold (Named_Theorems.add_thm @{named_theorems "hints"}) hints context
+  in 
+    check_list tests ("unit tests for " ^ name)
+      (SpecCheck_Property.prop
+        (fn tp => the_default false (try (thm_correct context' unif) tp) = should_succeed))
+      context'
+    |> K ()
+  end
 
 end

@@ -1,9 +1,14 @@
-theory First_Order_Tests
+\<^marker>\<open>creator "Kevin Kappelmann"\<close>
+\<^marker>\<open>contributor "Paul Bachmann"\<close>
+section \<open>First-Order Unification Tests\<close>
+theory First_Order_Unification_Tests
 imports
   Unification_Tests_Base
 begin
+paragraph \<open>Summary\<close>
+text \<open>Tests for @{ML_structure "First_Order_Unification"}.\<close>
 
-(*TODO: thm instantiation*)
+subsection \<open>Generated Tests\<close>
 ML_command\<open>
   structure Test_Params =
   struct
@@ -15,7 +20,7 @@ ML_command\<open>
       max_args = 4
     }
   end
-  structure First_Order_Tests = First_Order_Tests(Test_Params)
+  structure First_Order_Tests = First_Order_Unification_Tests(Test_Params)
 \<close>
 
 ML\<open>
@@ -25,7 +30,8 @@ ML\<open>
   val unify = First_Order_Unification.unify
 \<close>
 
-(**** occurs-check ****)
+subsection \<open>Unit Tests\<close>
+paragraph \<open>Occurs-Check\<close>
 ML_command\<open>
   let 
     val unit_tests = [

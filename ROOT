@@ -9,6 +9,7 @@ session Unification_Hints = "HOL" +
     tests
 
   theories
-    First_Order_Tests
-    Higher_Order_Tests
+    Unification_Hints_Examples
+    First_Order_Unification_Tests
+    Higher_Order_Pattern_Unification_Tests
     Unification_Hints

@@ -30,24 +30,22 @@ end
 fun pretty_env ctxt (Envir.Envir {tyenv, tenv,...}) =
   Pretty.list "(" ")" [pretty_tyenv ctxt tyenv, pretty_tenv ctxt tenv]
 
-fun trace_unif_result ctxt (t1,t2) (env,thm) =
+fun trace_unif_result ctxt (t1,t2) (env, thm) =
   (Logger.info ctxt writeln "Unification results:";
-  Logger.info ctxt (writeln o Pretty.string_of o pretty_tenv ctxt o Envir.term_env) env;
-  Logger.info ctxt (writeln o Pretty.string_of o pretty_tyenv ctxt o Envir.type_env) env;
-  Logger.info ctxt (writeln o Pretty.string_of o pretty_thm ctxt) thm;
-  Logger.info ctxt (writeln o Pretty.string_of o pretty_terms ctxt)
+  Logger.info ctxt (Pretty.writeln o pretty_env ctxt) env;
+  Logger.info ctxt (Pretty.writeln o pretty_thm ctxt) thm;
+  Logger.info ctxt (Pretty.writeln o pretty_terms ctxt)
     [Envir.norm_term env t1, Envir.norm_term env t2])
 
-fun trace_test_result ctxt ts unif =
+fun maxidx_of_terms ts = fold (Integer.max o maxidx_of_term) ts ~1
+
+fun empty_envir (t1, t2) = Envir.empty (maxidx_of_terms [t1, t2])
+
+fun trace_test_result ctxt tp unif =
   let
     val pctxt = Context.proof_of ctxt
-    val sigma = unif ctxt ts Envir.init
-  in trace_unif_result pctxt ts sigma end
-
-
-local
-  fun prep_type ctxt (x, (S, ty)) = ((x, S), Thm.ctyp_of ctxt ty)
-in
+    val sigma = unif ctxt tp (empty_envir tp)
+  in trace_unif_result pctxt tp sigma end
 
 fun norm_thm_types ctxt (Envir.Envir {tyenv, ...}) thm =
   let 
@@ -57,29 +55,6 @@ fun norm_thm_types ctxt (Envir.Envir {tyenv, ...}) thm =
     val type_inst = Term.add_tvars prop [] |> map prep_type_entry
     val inst = (type_inst, [])
   in Drule.instantiate_normalize inst thm end
-
-(* fun norm_thm_types ctxt (Envir.Envir {tyenv, ...}) =
-  let 
-    val norm_type = Envir.norm_type tyenv
-    fun norm_type_entry _ (S, T) = (S, norm_type T)
-    (*normalise the type environment*)
-    val tyenv_dest = Vartab.map norm_type_entry tyenv |> Vartab.dest
-    val inst = (map (prep_type ctxt) tyenv_dest, [])
-  in Drule.instantiate_normalize inst end *)
-(* 
-fun norm_thm ctxt (env as Envir.Envir {tyenv, tenv,...}) =
-  let 
-    val norm_type = Envir.norm_type tyenv
-    val norm_term = Envir.norm_term env
-    fun norm_term_entry _ (T, t) = (norm_type T, norm_term t)
-    (*normalise the types in the term environment*)
-    val tenv_dest = Vartab.map norm_term_entry tenv |> Vartab.dest
-    fun norm_type_entry _ (S, T) = (S, norm_type T)
-    (*normalise the type environment*)
-    val tyenv_dest = Vartab.map norm_type_entry tyenv |> Vartab.dest
-    fun prep_term ctxt (x, (T, t)) = ((x, T), Thm.cterm_of ctxt t)
-    val inst = (map (prep_type ctxt) tyenv_dest, map (prep_term ctxt) tenv_dest)
-  in Drule.instantiate_normalize inst end *)
 
 fun norm_thm ctxt (env as Envir.Envir {tyenv,...}) thm =
   let 
@@ -92,8 +67,6 @@ fun norm_thm ctxt (env as Envir.Envir {tyenv,...}) thm =
     val term_inst = Term.add_vars prop [] |> map prep_term_entry
     val inst = (type_inst, term_inst)
   in Drule.instantiate_normalize inst thm end
-
-end
 
 fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
   if T = U then env
@@ -112,7 +85,7 @@ fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
             ]
             |> Pretty.writeln)
           ();
-        raise Pattern.Unif)
+        raise Unification_Types.Unif)
       end
 
 end

@@ -1,4 +1,4 @@
-functor First_Order_Tests(P : sig
+functor First_Order_Unification_Tests(P : sig
     val unify : Unification_Types.unifier
     val unify_hints : Unification_Types.unifier
     val params : { nv : int, ni : int, max_h : int, max_args : int }
@@ -48,7 +48,7 @@ val _ =
         check (Gen.map (fn t => (t, t)) term_gen')
           ("Unifying identical terms does not change environment with " ^ name)
           (Prop.==> (terms_unify unif context,
-            (fn tp => unif context tp Envir.init |> fst |> Envir.is_empty)))
+            (fn tp => unif context tp (Unification_Util.empty_envir tp) |> fst |> Envir.is_empty)))
           context
       end
   in
@@ -83,10 +83,8 @@ val _ =
       val term_gen' = term_gen ctxt
       val unvarify = map_aterms (fn (Var ((n, i), T)) => Free (n ^ Int.toString i, T) | T => T)
     in
-      check (Gen.map (fn t => (t, unvarify t)) term_gen')
-        ("Unifying terms with Var replaced by Free for " ^ name)
-        (Prop.prop (thm_correct context unif))
-        context
+      check_thm (Gen.map (fn t => (t, unvarify t)) term_gen')
+        ("Unifying terms with Var replaced by Free for " ^ name) unif context
     end
   in
     Lecker.test_group (Context.the_generic_context ()) (SpecCheck_Random.new ()) [
@@ -128,16 +126,16 @@ val _ =
       (Var (("x", 0), TVar (("X", 0), [])), Free ("f", TFree ("'a", []))),
       (Var (("x", 0), TFree ("'a", [])), Free ("f", TFree ("'a", []))),
       (
-        Var (("x", 0), TFree ("'a", []) --> TVar (("X", 0), [])) $
-          Var (("x", 0), TVar (("Y", 0), [])),
-        Var (("x", 0), TVar (("Y", 0), []) --> TFree ("'b", [])) $
-          Var (("x", 0), TFree ("'a", []))
+        Free ("x", TFree ("'a", []) --> TVar (("X", 0), [])) $
+          Free ("x", TVar (("Y", 0), [])),
+        Free ("x", TVar (("Y", 0), []) --> TFree ("'b", [])) $
+          Free ("x", TFree ("'a", []))
       ),
       (
         Free ("f", TVar (("X", 0), []) --> TVar (("Y", 0), [])) $
           Free ("c", TVar (("X", 0), [])),
-        Var (("X", 0), TVar (("X", 1), []) --> TVar (("Y", 1), [])) $
-          Free ("c", TVar (("X", 1), []))
+        Free ("f", TVar (("X", 0), []) --> TVar (("Y", 0), [])) $
+          Var (("x", 0), TVar (("X", 1), []))
       ),
       (
         Free ("f", [TVar (("A", 0), []), TVar (("B", 0), [])] ---> TFree ("c", [])) $
@@ -149,7 +147,7 @@ val _ =
       )
     ]
     fun check name unif context _ = 
-      check_list tests ("unit tests for " ^ name) (Prop.prop (thm_correct context unif)) context 
+      check_list tests ("unifiable unit tests for " ^ name) (Prop.prop (thm_correct context unif)) context 
       |> K ()
   in
     Lecker.test_group (Context.the_generic_context ()) () [
@@ -166,7 +164,7 @@ val _ =
       (Free("f", TFree("'a",[])), Free("g", TFree("'a",[])))
     ]
     fun check name unif context _ = 
-      check_list unit_tests ("unit tests for " ^ name)
+      check_list unit_tests ("non-unifiable unit tests for " ^ name)
         (Prop.prop (not o can (thm_correct context unif))) context
       |> K ()
   in
@@ -177,24 +175,14 @@ val _ =
   end
 
 (* hint tests *)
-fun check_unit_tests_hints tests should_succeed hints name unif context _ = 
-  let val context' = fold (Named_Theorems.add_thm @{named_theorems "hints"}) hints context
-  in 
-    check_list tests ("hint unit tests for " ^ name)
-      (Prop.prop
-        (fn tp => the_default false (try (thm_correct context' unif) tp) = should_succeed))
-      context'
-    |> K ()
-  end
-
 (** non-recursive tests **)
 val _ =
   let 
     val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
     val context = Context.Proof ctxt
     val hints = map (Skip_Proof.make_thm (Context.theory_of context) o Syntax.read_term ctxt) [
-      "?X \<equiv> ?Z \<Longrightarrow> ?Y \<equiv> (0 :: nat) \<Longrightarrow> ?X + ?Y \<equiv> ?Z",
-      "?X \<equiv> 1 \<Longrightarrow> ?Y \<equiv> 1 \<Longrightarrow> ?X * ?Y \<equiv> (1 :: nat)"
+      "?x \<equiv> ?z \<Longrightarrow> ?y \<equiv> (0 :: nat) \<Longrightarrow> ?x + ?y \<equiv> ?z",
+      "?x \<equiv> 1 \<Longrightarrow> ?y \<equiv> 1 \<Longrightarrow> ?x * ?y \<equiv> (1 :: nat)"
     ]
     val tests = map (apply2 (Syntax.read_term ctxt)) [
       ("1 :: nat", "1 + 0 :: nat"),
@@ -243,8 +231,8 @@ val _ =
       |> Variable.declare_term @{term "g :: nat => nat"}
     val context = Context.Proof ctxt
     val hints = map (Skip_Proof.make_thm (Context.theory_of context) o Syntax.read_term ctxt) [
-        "?X \<equiv> ?Z \<Longrightarrow> ?Y \<equiv> (0 :: nat) \<Longrightarrow> ?X + ?Y \<equiv> ?Z",
-        "?Y \<equiv> ?X + ?Z \<Longrightarrow> ?X + (Suc ?Z) \<equiv> Suc ?Y",
+        "?x \<equiv> ?z \<Longrightarrow> ?y \<equiv> (0 :: nat) \<Longrightarrow> ?x + ?y \<equiv> ?z",
+        "?y \<equiv> ?x + ?z \<Longrightarrow> ?x + (Suc ?z) \<equiv> Suc ?y",
         "?x \<equiv> f (g 0) \<Longrightarrow> ?y \<equiv> g (f 0) \<Longrightarrow> f (g ?x) \<equiv> g (f ?y)",
         "?y \<equiv> f ?x \<Longrightarrow> ?x \<equiv> f (g 0) \<Longrightarrow> f (g ?x) \<equiv> g (f ?y)"
       ]
