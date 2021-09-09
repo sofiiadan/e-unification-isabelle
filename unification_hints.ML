@@ -96,11 +96,11 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
   let
     val ctxt = Context.proof_of context
     val _ = Logger.trace ctxt
-      (fn hint =>
+      (fn _ =>
         Pretty.block [Pretty.str "Trying hint: ", pretty_hint ctxt hint]
         |> Pretty.string_of
         |> tracing)
-      hint
+      ()
 
     (*increase indices o avoid naming conflicts*)
     val (P, Q) = apply2 (incr_idx (maxidx + 1)) (P_raw, Q_raw)
@@ -123,11 +123,11 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
     val match_env = Envir.Envir {tyenv=match_tyenv, tenv=match_tenv, maxidx=maxidx_new}
 
     val _ = Logger.debug ctxt
-      (fn hint =>
+      (fn _ =>
         Pretty.block [Pretty.str "Hint ", pretty_hint ctxt hint,
           Pretty.str " matched. Unifying premises..."]
         |> Pretty.writeln)
-      hint
+      ()
 
     (*unify each hint premise and collect the theorems while iteratively
       extending the environment*)
@@ -138,14 +138,15 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
     val prem_env_thms_inst = map (Unification_Util.norm_thm ctxt env_res) prem_env_thms |> rev
     val thm_inst = Unification_Util.norm_thm ctxt env_res hint_thm
     (*discharge the hint premises; flip the theorem if needed*)
-    val thm_res = (if flip then symmetric else I) (thm_inst OF prem_env_thms_inst)
+    val thm_res = Drule.implies_elim_list thm_inst prem_env_thms_inst
+      |> (if flip then symmetric else I)
   in
     Logger.debug ctxt
-      (fn thm =>
+      (fn _ =>
         Pretty.block [Pretty.str "All premises unified; resulting theorem: ",
-          Unification_Util.pretty_thm ctxt thm]
+          Unification_Util.pretty_thm ctxt thm_res]
         |> Pretty.writeln)
-      thm_res;
+      ();
     SOME (env_res, thm_res)
   end
     handle
@@ -154,8 +155,7 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
         (Logger.trace (Context.proof_of context) tracing "Hint does not match"; NONE) *)
       Pattern.MATCH => (Logger.trace (Context.proof_of context) tracing "Hint does not match"; NONE)
     | exn => if Exn.is_interrupt exn then Exn.reraise exn else 
-        (Logger.debug (Context.proof_of context) writeln
-          "Hint matches but cannot unify premises";
+        (Logger.debug (Context.proof_of context) writeln "Hint matches but cannot unify premises";
         NONE)
 
 (*try to apply every hint from the hint list*)

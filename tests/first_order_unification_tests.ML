@@ -1,8 +1,37 @@
+signature FIRST_ORDER_UNIFICATION_TESTS =
+sig
+
+  val tests_identical : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val tests_identical_env : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val tests_thm : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val tests_replaced : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val tests_symmetry : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val generated_tests : (Context.generic, SpecCheck_Random.rand) Lecker.test
+
+  val unit_tests_unifiable : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val unit_tests_non_unifiable : (Context.generic, SpecCheck_Random.rand) Lecker.test
+
+  val unit_tests_hints_non_recursive : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val unit_tests_multiple_matching_hints : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val unit_tests_hints_recursive : (Context.generic, SpecCheck_Random.rand) Lecker.test
+  val unit_tests_hints : (Context.generic, SpecCheck_Random.rand) Lecker.test
+
+  val unit_tests : (Context.generic, SpecCheck_Random.rand) Lecker.test
+
+  val tests : (Context.generic, SpecCheck_Random.rand) Lecker.test
+
+end
+
 functor First_Order_Unification_Tests(P : sig
     val unify : Unification_Types.unifier
     val unify_hints : Unification_Types.unifier
-    val params : { nv : int, ni : int, max_h : int, max_args : int }
-  end) : sig end =
+    val params : {
+      nv : int,
+      ni : int,
+      max_h : int,
+      max_args : int
+    }
+  end) : FIRST_ORDER_UNIFICATION_TESTS =
 struct
 
 structure Prop = SpecCheck_Property
@@ -17,13 +46,13 @@ fun term_gen ctxt =
 
 fun term_pair_gen ctxt =
   let val {nv, ni, max_h, max_args} = P.params
-  in term_pair_gen' ctxt nv ni weights max_h max_args end
+  in Unification_Tests_Base.term_pair_gen' ctxt nv ni weights max_h max_args end
 
 (* standard unification *)
 (** generated tests **)
 (*** unification of identical terms ***)
-val _ =
-  let fun check_identitcal name unif context =
+fun tests_identical context r =
+  let fun check_identical name unif context =
     let
       val ctxt = Context.proof_of context 
       val term_gen' = term_gen ctxt
@@ -32,13 +61,13 @@ val _ =
         ("Unifying identical terms with " ^ name) unif context
     end
   in
-    Lecker.test_group (Context.the_generic_context ()) (SpecCheck_Random.new ()) [
-      check_identitcal "unify" P.unify,
-      check_identitcal "unify_hints" P.unify_hints
+    Lecker.test_group context r [
+      check_identical "unify" P.unify,
+      check_identical "unify_hints" P.unify_hints
     ]
   end
 
-val _ =
+fun tests_identical_env context r =
   let
     fun check_identical_env name unif context =
       let
@@ -52,31 +81,31 @@ val _ =
           context
       end
   in
-    Lecker.test_group (Context.the_generic_context ()) (SpecCheck_Random.new ()) [
+    Lecker.test_group context r [
       check_identical_env "unify" P.unify,
       check_identical_env "unify_hints" P.unify_hints
     ]
   end
 
 (*** unification of randomly generated terms ***)
-val _ = 
+fun tests_thm context r =
   let
-    fun check_thm_free_var name unif context =
+    fun check_thm name unif context =
       let
         val ctxt = Context.proof_of context 
         val term_pair_gen' = term_pair_gen ctxt
-      in check_thm term_pair_gen' name unif context end
-    val context =
-      Config.put SpecCheck_Configuration.max_discard_ratio 100 @{context}
+      in Unification_Tests_Base.check_thm term_pair_gen' name unif context end
+    val context' =
+      Config.put SpecCheck_Configuration.max_discard_ratio 100 (Context.proof_of context)
       |> Context.Proof
   in
-    Lecker.test_group context (SpecCheck_Random.new ()) [
-      check_thm_free_var "unify" P.unify,
-      check_thm_free_var "unify_hints" P.unify_hints
+    Lecker.test_group context' r [
+      check_thm "unify" P.unify,
+      check_thm "unify_hints" P.unify_hints
     ]
   end
 
-val _ = 
+fun tests_replaced context r =
   let fun check_replaced name unif context =
     let
       val ctxt = Context.proof_of context 
@@ -87,15 +116,15 @@ val _ =
         ("Unifying terms with Var replaced by Free for " ^ name) unif context
     end
   in
-    Lecker.test_group (Context.the_generic_context ()) (SpecCheck_Random.new ()) [
+    Lecker.test_group context r [
       check_replaced "unify" P.unify,
       check_replaced "unify_hints" P.unify_hints
     ]
   end
 
 (**** symmetry ****)
-val _ = 
-  let fun check_thm_free_var name unif context =
+fun tests_symmetry context r =
+  let fun check_thm_symmetry name unif context =
     let
       val ctxt = Context.proof_of context 
       val term_pair_gen' = term_pair_gen ctxt
@@ -107,15 +136,24 @@ val _ =
         context
     end
   in
-    Lecker.test_group (Context.the_generic_context ()) (SpecCheck_Random.new ()) [
-      check_thm_free_var "unify" P.unify,
-      check_thm_free_var "unify_hints" P.unify_hints
+    Lecker.test_group context r [
+      check_thm_symmetry "unify" P.unify,
+      check_thm_symmetry "unify_hints" P.unify_hints
     ]
   end
 
+fun generated_tests context r = 
+  Lecker.test_group context r [
+    tests_identical,
+    tests_identical_env,
+    tests_thm,
+    tests_replaced,
+    tests_symmetry
+  ]
+
 (** Unit tests **)
 (*** unifiable ***)
-val _ =
+fun unit_tests_unifiable context r =
   let 
     val tests = [
       (Var (("x", 0), TVar (("X", 0), [])), Var (("x", 0), TVar (("Y", 0), []))),
@@ -146,29 +184,30 @@ val _ =
           Free ("b", TVar (("A", 0), []))
       )
     ]
-    fun check name unif context _ = 
-      check_list tests ("unifiable unit tests for " ^ name) (Prop.prop (thm_correct context unif)) context 
-      |> K ()
+    fun check name unif context r = 
+      check_list tests ("unifiable unit tests for " ^ name)
+        (Prop.prop (thm_correct context unif)) context 
+      |> K r
   in
-    Lecker.test_group (Context.the_generic_context ()) () [
+    Lecker.test_group context r [
       check "unify" P.unify,
       check "unify_hints" P.unify_hints
     ]
   end
 
 (*** non-unifiable ***)
-val _ =
+fun unit_tests_non_unifiable context r =
   let 
     val unit_tests = [
       (Free("f", TFree("'a",[])), Free("f", TFree("'b",[]))),
       (Free("f", TFree("'a",[])), Free("g", TFree("'a",[])))
     ]
-    fun check name unif context _ = 
+    fun check name unif context r = 
       check_list unit_tests ("non-unifiable unit tests for " ^ name)
         (Prop.prop (not o can (thm_correct context unif))) context
-      |> K ()
+      |> K r
   in
-    Lecker.test_group (Context.the_generic_context ()) () [
+    Lecker.test_group context r [
       check "unify" P.unify,
       check "unify_hints" P.unify_hints
     ]
@@ -176,10 +215,9 @@ val _ =
 
 (* hint tests *)
 (** non-recursive tests **)
-val _ =
+fun unit_tests_hints_non_recursive context r =
   let 
-    val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
-    val context = Context.Proof ctxt
+    val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic (Context.proof_of context)
     val hints = map (Skip_Proof.make_thm (Context.theory_of context) o Syntax.read_term ctxt) [
       "?x \<equiv> ?z \<Longrightarrow> ?y \<equiv> (0 :: nat) \<Longrightarrow> ?x + ?y \<equiv> ?z",
       "?x \<equiv> 1 \<Longrightarrow> ?y \<equiv> 1 \<Longrightarrow> ?x * ?y \<equiv> (1 :: nat)"
@@ -191,7 +229,7 @@ val _ =
     ]
     val check_hints = check_unit_tests_hints tests
   in
-    Lecker.test_group context () [
+    Lecker.test_group context r [
       check_hints false [] "unify" P.unify,
       check_hints false [] "unify_hints without hints" P.unify_hints,
       check_hints true hints "unify_hints with hints" P.unify_hints
@@ -199,20 +237,19 @@ val _ =
   end
 
 (** multiple matching hints **)
-val _ =
+fun unit_tests_multiple_matching_hints context r =
   let 
-    val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
-    val context = Context.Proof ctxt
+    val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic (Context.proof_of context)
     val hints = map (Skip_Proof.make_thm (Context.theory_of context) o Syntax.read_term ctxt) [
       "Suc ?x \<equiv> 1",
       "?x \<equiv> 0 \<Longrightarrow> Suc ?x \<equiv> 1"
     ]
-    val tests = [
-      (@{term "Suc x :: nat"}, @{term "1 :: nat"})
+    val tests = map (apply2 (Syntax.read_term ctxt)) [
+      ("Suc x :: nat", "1 :: nat")
     ]
     val check_hints = check_unit_tests_hints tests
   in
-    Lecker.test_group context () [
+    Lecker.test_group context r [
       check_hints false [] "unify" P.unify,
       check_hints false [] "unify_hints without hints" P.unify_hints,
       check_hints false (tl hints) "unify_hints with wrong hints" P.unify_hints,
@@ -223,13 +260,13 @@ val _ =
   end
 
 (** recursive hints **)
-val _ =
+fun unit_tests_hints_recursive context r =
   let 
     val ctxt =
-      Proof_Context.set_mode Proof_Context.mode_schematic @{context}
+      Proof_Context.set_mode Proof_Context.mode_schematic (Context.proof_of context)
       |> Variable.declare_term @{term "f :: nat => nat"}
       |> Variable.declare_term @{term "g :: nat => nat"}
-    val context = Context.Proof ctxt
+    val context' = Context.Proof ctxt
     val hints = map (Skip_Proof.make_thm (Context.theory_of context) o Syntax.read_term ctxt) [
         "?x \<equiv> ?z \<Longrightarrow> ?y \<equiv> (0 :: nat) \<Longrightarrow> ?x + ?y \<equiv> ?z",
         "?y \<equiv> ?x + ?z \<Longrightarrow> ?x + (Suc ?z) \<equiv> Suc ?y",
@@ -245,11 +282,31 @@ val _ =
     ]
     val check_hints = check_unit_tests_hints tests
   in
-    Lecker.test_group context () [
+    Lecker.test_group context' r [
       check_hints false [] "unify" P.unify,
       check_hints false [] "unify_hints without hints" P.unify_hints,
       check_hints true hints "unify_hints with hints" P.unify_hints
     ]
   end
+
+fun unit_tests_hints context r = 
+  Lecker.test_group context r [
+    unit_tests_hints_non_recursive,
+    unit_tests_multiple_matching_hints,
+    unit_tests_hints_recursive
+  ]
+
+fun unit_tests context r = 
+  Lecker.test_group context r [
+    unit_tests_unifiable,
+    unit_tests_non_unifiable,
+    unit_tests_hints
+  ]
+
+fun tests context r = 
+  Lecker.test_group context r [
+    unit_tests,
+    generated_tests
+  ]
 
 end

@@ -5,10 +5,8 @@ First-order unification with hints (see unification_hints.ML).
 *)
 signature FIRST_ORDER_UNIFICATION =
 sig
-
   val unify : Unification_Types.unifier 
   val unify_hints : Unification_Types.unifier
-
 end
 
 structure First_Order_Unification : FIRST_ORDER_UNIFICATION =

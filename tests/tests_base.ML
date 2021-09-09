@@ -73,14 +73,14 @@ fun check_thm gen name unif context =
 fun check_list tests name prop context =
   SpecCheck.check_list (show_termpair context) tests name prop (Context.proof_of context)
 
-fun check_unit_tests_hints tests should_succeed hints name unif context _ = 
+fun check_unit_tests_hints tests should_succeed hints name unif context r = 
   let val context' = fold (Named_Theorems.add_thm @{named_theorems "hints"}) hints context
   in 
     check_list tests ("unit tests for " ^ name)
       (SpecCheck_Property.prop
         (fn tp => the_default false (try (thm_correct context' unif) tp) = should_succeed))
       context'
-    |> K ()
+    |> K r
   end
 
 end

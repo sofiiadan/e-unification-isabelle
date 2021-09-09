@@ -21,6 +21,7 @@ ML_command\<open>
     }
   end
   structure First_Order_Tests = First_Order_Unification_Tests(Test_Params)
+  val _ = First_Order_Tests.tests (Context.the_generic_context ()) (SpecCheck_Random.new ())
 \<close>
 
 ML\<open>

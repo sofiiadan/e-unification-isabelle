@@ -17,10 +17,13 @@ ML_command\<open>
       nv = 10,
       ni = 10,
       max_h = 5,
-      max_args = 4
+      max_args = 5
     }
   end
   structure First_Order_Tests = First_Order_Unification_Tests(Test_Params)
+  (* val _ = First_Order_Tests.tests (Context.the_generic_context ()) (SpecCheck_Random.new ()) *)
+  val _ = First_Order_Tests.tests (Context.the_generic_context ())
+    (SpecCheck_Random.deterministic_seed 1252135)
 \<close>
 
 subsection \<open>Unit Tests\<close>
