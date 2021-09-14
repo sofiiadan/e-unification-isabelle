@@ -2,7 +2,9 @@
 section \<open>Unification Test Setup\<close>
 theory Unification_Tests_Base
 imports
-  Unification_Hints
+  Main
+  Unification_Hints.Unification_Hints
+  SpecCheck.SpecCheck
 begin
 paragraph \<open>Summary\<close>
 text \<open>Shared setup for unification tests.\<close>

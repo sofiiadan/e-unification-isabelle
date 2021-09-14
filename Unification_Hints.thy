@@ -1,9 +1,7 @@
 \<^marker>\<open>creator "Kevin Kappelmann"\<close>
 section \<open>Unification with Hints\<close>
 theory Unification_Hints
-imports
-  Main
-  SpecCheck.SpecCheck
+imports Pure
 begin
 paragraph \<open>Summary\<close>
 text \<open>Unification algorithms with hints.\<close>

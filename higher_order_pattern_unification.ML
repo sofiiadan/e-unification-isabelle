@@ -251,8 +251,10 @@ fun flexflex1 context (env, binders, F, Fty, Fty', is, js) =
 fun flexflex2 context (env, binders, F, Fty, is, G, Gty, js) =
   let
     val var_app = app_free env binders F Fty is
-    val env' =
-      unify_types context (fastype_of var_app, Envir.fastype env [] (app (Var (G, Gty), js))) env
+    val binder_types = map (snd o fst) binders
+    val env' = unify_types context
+      (fastype_of1 (binder_types, var_app), Envir.fastype env binder_types (app (Var (G, Gty), js)))
+      env
     val thm = Hints.reflexive_term context var_app
     fun ff (F, Fty, is, G as (a, _), Gty, js) =
       if subset (op =) (js, is) then
@@ -402,7 +404,9 @@ and flexrigid context (params as (env, binders, F, Fty, is, t)) =
   else
     let
       val var_app = app_free env binders F Fty is
-      val env' = unify_types context (fastype_of var_app, Envir.fastype env [] t) env
+      val binder_types = map (snd o fst) binders
+      val env' = unify_types context
+        (fastype_of1 (binder_types, var_app), Envir.fastype env binder_types t) env
       val (u, env'') = proj context (t, env', binders, is)
       val env''' = Envir.update ((F, Fty), mkabs (binders, is, u)) env''
       val thm = Hints.reflexive_term context var_app

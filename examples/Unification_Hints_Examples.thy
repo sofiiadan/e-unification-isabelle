@@ -3,8 +3,8 @@
 section \<open>Examples\<close>
 theory Unification_Hints_Examples
 imports
-  Unification_Hints
   Complex_Main
+  Unification_Hints.Unification_Hints
 begin
 paragraph \<open>Summary\<close>
 text \<open>Sample Applications for Unification Hints.\<close>
@@ -64,7 +64,7 @@ fun eval :: "Expr \<Rightarrow> int" where
 
 consts simpl :: "Expr \<Rightarrow> Expr"
 
-lemma soundness : "P (eval (simpl e)) \<Longrightarrow> P (eval e)" sorry
+(* lemma soundness : "P (eval (simpl e)) \<Longrightarrow> P (eval e)" sorry *)
 
 (*supply base case and inductive hint*)
 lemma eval_Var [hints]: "e \<equiv> Var i \<Longrightarrow> eval e \<equiv> i" by simp

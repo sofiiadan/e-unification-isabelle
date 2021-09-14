@@ -54,7 +54,7 @@ fun norm_thm_types ctxt (Envir.Envir {tyenv, ...}) thm =
     fun prep_type_entry x = (x, Thm.ctyp_of ctxt (norm_type (TVar x)))
     val type_inst = Term.add_tvars prop [] |> map prep_type_entry
     val inst = (type_inst, [])
-  in Drule.instantiate_normalize inst thm end
+  in Thm.instantiate inst thm end
 
 fun norm_thm ctxt (env as Envir.Envir {tyenv,...}) thm =
   let 
@@ -66,7 +66,7 @@ fun norm_thm ctxt (env as Envir.Envir {tyenv,...}) thm =
     fun prep_term_entry (x as (n, T)) = ((n, norm_type T), Thm.cterm_of ctxt (norm_term (Var x)))
     val term_inst = Term.add_vars prop [] |> map prep_term_entry
     val inst = (type_inst, term_inst)
-  in Drule.instantiate_normalize inst thm end
+  in Thm.instantiate inst thm end
 
 fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
   if T = U then env

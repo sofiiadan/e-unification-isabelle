@@ -31,12 +31,12 @@ fun pretty_hint ctxt (_, prems, thm) =
   let 
     fun pretty_prems ctxt prems =
       map (apply2 (Syntax.pretty_term ctxt) o apfst Var) prems
-      |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " ≡ ", s2])
-      |> Pretty.list "⟦" "⟧"
+      |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " \<equiv> ", s2])
+      |> Pretty.list "\<lbrakk>" "\<rbrakk>"
   in
     Pretty.block [
       pretty_prems ctxt prems,
-      Pretty.str " ⟹ ",
+      Pretty.str " \<Longrightarrow> ",
       Syntax.pretty_term ctxt (Thm.concl_of thm)
     ]
   end
