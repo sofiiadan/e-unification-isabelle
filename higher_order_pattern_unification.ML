@@ -1,26 +1,31 @@
+(*  Title:      Pure/pattern.ML
+    Author:     Tobias Nipkow, Christine Heinzelmann, Stefan Berghofer, and
+                Kevin Kappelmann TU Muenchen
+
+Unification of Higher-Order Patterns with unification hints.
+
+See also:
+Tobias Nipkow. Functional Unification of Higher-Order Patterns.
+In Proceedings of the 8th IEEE Symposium Logic in Computer Science, 1993.
+
+TODO: optimize red by special-casing it
+*)
 signature HIGHER_ORDER_PATTERN_UNIFICATION =
 sig
-  
-  val unify_trace_failure : bool Config.T
-  val unify_types : Context.generic -> typ * typ -> Envir.env -> Envir.env
-  val unify : Unification_Types.unifier 
-  val unify_hints : Unification_Types.unifier 
+
+  structure Logger : LOGGER
+  val unify : Unification_Types.unifier
+  val unify_hints : Unification_Types.unifier
 
 end
 
 structure Higher_Order_Pattern_Unification : HIGHER_ORDER_PATTERN_UNIFICATION =
 struct
 
+structure Logger = @{new_logger "higher_order_pattern_unification"}
+
 structure Hints = Unification_Hints
-
-(*we store binders as ((name, typ), fresh_free)*)
-fun new_binder context name T = 
-  let
-    val ctxt = Context.proof_of context
-    val (name', ctxt') = yield_singleton Variable.variant_fixes name ctxt
-  in (Context.Proof ctxt', ((name, T), Free (name', T))) end
-
-val unify_trace_failure = Config.declare_bool ("unify_trace_failure", \<^here>) (K false);
+structure Util = Unification_Util
 
 fun string_of_term ctxt env binders t =
   (map (Free o fst) binders, t)
@@ -30,88 +35,43 @@ fun string_of_term ctxt env binders t =
 
 fun bname binders = fst o fst o nth binders
 fun bnames binders is = map (bname binders) is |> space_implode " "
-fun bfree binders = snd o nth binders
-
-fun typ_clash context (typenv, T, U) =
-  if Config.get_generic context unify_trace_failure then
-    let val ctxt = Context.proof_of context;
-    in
-      Logger.trace ctxt (K
-          let val (sT, sU) = apply2 (Syntax.string_of_typ ctxt o Envir.norm_type typenv) (T, U)
-          in cat_lines ["The following types do not unify:", sT, sU] |> tracing end
-        )
-        ()
-    end
-  else ()
-
-fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
-  if T = U then env
-  else
-    let
-      val thy = Context.theory_of context
-      val (tyenv', maxidx') = Sign.typ_unify thy (U, T) (tyenv, maxidx)
-    in Envir.Envir {maxidx = maxidx', tenv = tenv, tyenv = tyenv'} end
-    handle Type.TUNIFY => (typ_clash context (tyenv, T, U); raise Unification_Types.Unif)
 
 fun clash context a b =
-  if Config.get_generic context unify_trace_failure then
-    Logger.trace (Context.proof_of context) tracing ("Clash: " ^ a ^ " =/= " ^ b)
-  else ()
+  @{log Logger.DEBUG} (Context.proof_of context) (fn () => "Clash: " ^ a ^ " =/= " ^ b)
 
 fun boundVar binders i = "bound variable " ^ bname binders i ^ " (depth " ^ string_of_int i ^ ")"
 
-fun clashBB context binders i j =
-  if Config.get_generic context unify_trace_failure then
-    clash context (boundVar binders i) (boundVar binders j)
-  else ()
+fun clashBB context binders i j = clash context (boundVar binders i) (boundVar binders j)
 
-fun clashB context binders i s =
-  if Config.get_generic context unify_trace_failure then clash context (boundVar binders i) s
-  else ()
+fun clashB context binders i s = clash context (boundVar binders i) s
 
 fun proj_fail context (env, binders, F, _, is, t) =
-  if Config.get_generic context unify_trace_failure then
-    let val ctxt = Context.proof_of context
-    in
-      Logger.trace ctxt (K
-          let
-            val f = Term.string_of_vname F
-            val xs = bnames binders is
-            val u = string_of_term ctxt env binders t
-            val ys = bnames binders (subtract (op =) is (loose_bnos t))
-          in
-            cat_lines [
-              "Cannot unify variable " ^ f ^ " (depending on bound variables " ^ xs ^ ")",
-              "with term " ^ u,
-              "Term contains additional bound variable(s) " ^ ys
-            ]
-            |> tracing
-          end
-        )
-        ()
-    end
-  else ()
+  let val ctxt = Context.proof_of context
+  in
+    @{log Logger.DEBUG} ctxt (fn _ =>
+      let
+        val f = Term.string_of_vname F
+        val xs = bnames binders is
+        val u = string_of_term ctxt env binders t
+        val ys = bnames binders (subtract (op =) is (loose_bnos t))
+      in
+        cat_lines [
+          "Cannot unify variable " ^ f ^ " (depending on bound variables " ^ xs ^ ")",
+          "with term " ^ u,
+          "Term contains additional bound variable(s) " ^ ys
+        ]
+      end)
+  end
 
 fun ocheck_fail context (F, t, binders, env) =
-  if Config.get_generic context unify_trace_failure then
-    let val ctxt = Context.proof_of context
-    in
-      Logger.trace ctxt (K
-          let
-            val f = Term.string_of_vname F
-            val u = string_of_term ctxt env binders t
-          in
-            cat_lines [
-              "Variable " ^ f ^ " occurs in term",
-              u,
-              "Cannot unify!"
-            ]
-            |> tracing
-          end
-        )
-        ()
-    end
-  else ()
+  let val ctxt = Context.proof_of context
+  in
+    @{log Logger.DEBUG} ctxt (fn _ => cat_lines [
+        "Variable " ^ Term.string_of_vname F ^ " occurs in term",
+        string_of_term ctxt env binders t,
+        "Cannot unify!"
+      ])
+  end
 
 fun occurs (F, t, env) =
   let fun occ (Var (G, T)) = (case Envir.lookup env (G, T) of
@@ -122,14 +82,7 @@ fun occurs (F, t, env) =
         | occ _ = false
   in occ t end
 
-fun mapbnd f =
-  let fun mpb d (Bound i) = if i < d then Bound i else Bound (f (i - d) + d)
-        | mpb d (Abs (s, T, t)) = Abs (s, T, mpb (d + 1) t)
-        | mpb d (u1 $ u2) = (mpb d u1) $ (mpb d u2)
-        | mpb _ atom = atom
-  in mpb 0 end
-
-fun idx [] _ = raise Unification_Types.Unif
+fun idx [] _ = raise Unification_Types.UNIF
   | idx (i :: is) j = if i = j then length is else idx is j
 
 fun mkabs (binders, is, t) =
@@ -137,13 +90,11 @@ fun mkabs (binders, is, t) =
     in Abs (x, T, acc) end
   in fold_rev abstract is t end
 
-val incr = mapbnd (fn i => i + 1)
-
 fun ints_of bs =
   (*collects arguments and checks if they are all distinct, bound variables*)
   let fun dest_check (Bound i) acc =
-            if member (op =) acc i then raise Pattern.Pattern else i :: acc
-        | dest_check _ _ = raise Pattern.Pattern
+            if member (op =) acc i then raise Unification_Types.PATTERN else i :: acc
+        | dest_check _ _ = raise Unification_Types.PATTERN
   in fold_rev dest_check bs [] end
 
 fun ints_of' env ts = ints_of (map (Envir.head_norm env) ts)
@@ -184,7 +135,7 @@ fun proj context (s, env, binders, is) =
     fun pr (s, env, d, binders) = (case Envir.head_norm env s of
           Abs (a, T, t) =>
             let
-              val (_, binder) = new_binder context a T
+              val (_, binder) = Util.new_binder context a T
               val (t', env'') = pr (t, env, d + 1, binder :: binders)
             in (Abs (a, T, t'), env'') end
         | t => (case strip_comb t of
@@ -209,7 +160,7 @@ fun proj context (s, env, binders, is) =
                   val (env', H) = Envir.genvar a (env, Hty)
                   val env'' = Envir.update ((F, Fty), mk_hnf (binders, js, H, ks)) env'
                 in (app (H, ls), env'') end
-            | _  => raise Pattern.Pattern))
+            | _  => raise Unification_Types.PATTERN))
     and prs (s :: ss, env, d, binders) =
           let
             val (s', env1) = pr (s, env, d, binders)
@@ -232,11 +183,11 @@ fun mk_ff_list (is,js) =
 
 fun app_free (Envir.Envir {tyenv,...}) binders n T is =
   let val norm_type = Envir.norm_type tyenv
-  in list_comb (Var (n, norm_type T), map (map_types norm_type o bfree binders) is) end
+  in list_comb (Var (n, norm_type T), map (map_types norm_type o Util.binder_free binders) is) end
 
 fun flexflex1 context (env, binders, F, Fty, Fty', is, js) =
   let
-    val env' = unify_types context (Fty, Fty') env
+    val env' = Util.unify_types context (Fty, Fty') env
     val thm = app_free env binders F Fty is
       |> Hints.reflexive_term context
   in
@@ -252,7 +203,7 @@ fun flexflex2 context (env, binders, F, Fty, is, G, Gty, js) =
   let
     val var_app = app_free env binders F Fty is
     val binder_types = map (snd o fst) binders
-    val env' = unify_types context
+    val env' = Util.unify_types context
       (fastype_of1 (binder_types, var_app), Envir.fastype env binder_types (app (Var (G, Gty), js)))
       env
     val thm = Hints.reflexive_term context var_app
@@ -268,7 +219,7 @@ fun flexflex2 context (env, binders, F, Fty, is, G, Gty, js) =
           val Hty = type_of_G env' (Fty, length is, map (idx is) ks)
           val (env'', H) = Envir.genvar a (env', Hty)
           fun lam is = mkabs (binders, is, app (H, map (idx is) ks))
-          val env''' = 
+          val env''' =
             Envir.update ((F, Fty), lam is) env''
             |> Envir.update ((G, Gty), lam js)
         in (env''', thm) end
@@ -281,9 +232,9 @@ fun unif try_hints_fun hints hints_unifier context binders (s, t) env =
   case (Envir.head_norm env s, Envir.head_norm env t) of
       (Abs (ns, Ts, ts), Abs (nt, Tt, tt)) =>
         let
-          val env' = unify_types context (Ts, Tt) env
+          val env' = Util.unify_types context (Ts, Tt) env
           val name = if ns = "" then nt else ns
-          val (context', binder as (_, bvar)) = new_binder context name Ts
+          val (context', binder as (_, bvar)) = Util.new_binder context name Ts
           val (env'', thm) =
             unif try_hints_fun hints hints_unifier context' (binder :: binders) (ts, tt) env'
           val bvar' = map_types (Envir.norm_type (Envir.type_env env'')) bvar
@@ -291,10 +242,10 @@ fun unif try_hints_fun hints hints_unifier context binders (s, t) env =
         in (env'', thm') end
     | (Abs (ns, Ts, ts), t) =>
         let
-          val (context', binder as (_, bvar)) = new_binder context ns Ts
+          val (context', binder as (_, bvar)) = Util.new_binder context ns Ts
           val (env', thm) =
             unif try_hints_fun hints hints_unifier context' (binder :: binders)
-              (ts, incr t $ Bound 0) env
+              (ts, incr_boundvars 1 t $ Bound 0) env
           val bvar' = map_types (Envir.norm_type (Envir.type_env env')) bvar
           val thm' = Hints.abstract_rule ns (Thm.cterm_of (Context.proof_of context') bvar') thm
         in (env', thm') end
@@ -321,45 +272,38 @@ and cases try_hints_fun hints hints_unifier context (binders, env, (s, t)) =
       | ((Bound i, ss), (Bound j, ts)) =>
           rigidrigidB try_hints_fun hints hints_unifier context (env,binders, i, j, ss, ts)
       | ((Const (c, _), _), (Free (f,_), _)) =>
-          (clash context c f; raise Unification_Types.Unif)
+          (clash context c f; raise Unification_Types.UNIF)
       | ((Const (c, _), _), (Bound i, _))   =>
-          (clashB context binders i c; raise Unification_Types.Unif)
+          (clashB context binders i c; raise Unification_Types.UNIF)
       | ((Free (f, _), _), (Const (c, _), _)) =>
-          (clash context f c; raise Unification_Types.Unif)
+          (clash context f c; raise Unification_Types.UNIF)
       | ((Free (f, _), _), (Bound i, _)) =>
-          (clashB context binders i f; raise Unification_Types.Unif)
+          (clashB context binders i f; raise Unification_Types.UNIF)
       | ((Bound i, _), (Const (c, _), _)) =>
-          (clashB context binders i c; raise Unification_Types.Unif)
-      | ((Bound i, _), (Free(f, _), _)) =>
-          (clashB context binders i f; raise Unification_Types.Unif)
-      | ((Abs _, _), _) => raise Pattern.Pattern
-      | (_, (Abs _, _)) => raise Pattern.Pattern)
+          (clashB context binders i c; raise Unification_Types.UNIF)
+      | ((Bound i, _), (Free (f, _), _)) =>
+          (clashB context binders i f; raise Unification_Types.UNIF))
   handle exn =>
-    if Exn.is_interrupt exn then Exn.reraise exn else 
+    if Exn.is_interrupt exn then Exn.reraise exn else
     let
       (*replace all Bounds by Frees to make hint matching possible*)
-      val bvars = map snd binders
-      val (s', t') = apply2 (subst_bounds o pair bvars) (s, t)
+      val (s', t') = Unification_Util.replace_binders binders (s, t)
       val ctxt = Context.proof_of context
-      val _ = Logger.debug ctxt
-        (fn _ => Pretty.block [
-            Pretty.str "Failed to pattern unify; trying hints for ",
-            Unification_Util.pretty_terms ctxt [s', t']
-          ]
-          |> Pretty.writeln)
-        ()
+      val _ = @{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
+          Pretty.str "Failed to pattern unify; trying hints for ",
+          Util.pretty_terms ctxt [s', t']
+        ]
+        |> Pretty.string_of)
       val hint_results = try_hints_fun context Pattern.match hints_unifier hints env (s', t')
     in
-      case Seq.pull hint_results of 
+      case Seq.pull hint_results of
         SOME (res, _) => res
-      | NONE => 
-          (Logger.debug ctxt
-            (fn _ => Pretty.block [
-                Pretty.str "Unification failed for ",
-                Unification_Util.pretty_terms ctxt [s', t']
-              ]
-              |> Pretty.writeln)
-            ();
+      | NONE =>
+          (@{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
+              Pretty.str "Unification failed for ",
+              Util.pretty_terms ctxt [s', t']
+            ]
+            |> Pretty.string_of);
           raise exn)
     end
 
@@ -367,7 +311,7 @@ and unif_args try_hints_fun hints hints_unifier context binders ss ts env thm =
   let
     val ctxt = Context.proof_of context
   (* fun combine thm (env, thm_arg) =
-      let val (thm', thm_arg') = apply2 (Unification_Util.norm_thm_types ctxt env) (thm, thm_arg)
+      let val (thm', thm_arg') = apply2 (Util.norm_thm_types ctxt env) (thm, thm_arg)
       in (env, Hints.combination thm' thm_arg') end
     fun unif_fold tpair (env, thm) =
       unif try_hints_fun hints hints_unifier context binders tpair env
@@ -377,53 +321,51 @@ and unif_args try_hints_fun hints hints_unifier context binders ss ts env thm =
        unif try_hints_fun hints hints_unifier context binders tpair env
        ||> (fn thm => thm :: thms)
     val (env', thms) = fold unif_arg (ss ~~ ts) (env, []) ||> rev
-    val norm_thm = Unification_Util.norm_thm_types ctxt env'
+    val norm_thm = Util.norm_thm_types ctxt env'
     fun combine thm_arg thm = norm_thm thm_arg |> Hints.combination thm
   in (env', fold combine thms (norm_thm thm)) end
 
 and rigidrigid try_hints_fun hints hints_unifier context (env, binders, t, (b, Tb), ss, ts) =
   let val (a, Ta) = (if is_Const t then dest_Const else dest_Free) t
-  in 
-    if a <> b then (clash context a b; raise Unification_Types.Unif)
+  in
+    if a <> b then (clash context a b; raise Unification_Types.UNIF)
     else
       let
-        val env' = unify_types context (Ta, Tb) env
+        val env' = Util.unify_types context (Ta, Tb) env
         val thm = Hints.reflexive_term context t
       in unif_args try_hints_fun hints hints_unifier context binders ss ts env' thm end
   end
 
 and rigidrigidB try_hints_fun hints hints_unifier context (env, binders, i, j, ss, ts) =
-  if i <> j then (clashBB context binders i j; raise Unification_Types.Unif)
-  else 
-    let val thm = bfree binders i |> Hints.reflexive_term context
+  if i <> j then (clashBB context binders i j; raise Unification_Types.UNIF)
+  else
+    let val thm = Util.binder_free binders i |> Hints.reflexive_term context
     in unif_args try_hints_fun hints hints_unifier context binders ss ts env thm end
 
 and flexrigid context (params as (env, binders, F, Fty, is, t)) =
   if occurs (F, t, env) then
-    (ocheck_fail context (F, t, binders, env); raise Unification_Types.Unif)
+    (ocheck_fail context (F, t, binders, env); raise Unification_Types.UNIF)
   else
     let
       val var_app = app_free env binders F Fty is
       val binder_types = map (snd o fst) binders
-      val env' = unify_types context
+      val env' = Util.unify_types context
         (fastype_of1 (binder_types, var_app), Envir.fastype env binder_types t) env
       val (u, env'') = proj context (t, env', binders, is)
       val env''' = Envir.update ((F, Fty), mkabs (binders, is, u)) env''
       val thm = Hints.reflexive_term context var_app
     in (env''', thm) end
-    handle (exn as Unification_Types.Unif) => (proj_fail context params; raise exn)
+    handle (exn as Unification_Types.UNIF) => (proj_fail context params; raise exn)
 
 fun unif_core try_hints_fun hints hints_unifier context binders (s, t) =
   let val ctxt = Context.proof_of context
   in
-    Logger.debug ctxt
-      (fn _ =>
-        Pretty.block [
-          Pretty.str "Higher-order pattern unifying ",
-          Unification_Util.pretty_terms ctxt [s, t]
-        ]
-        |> Pretty.writeln)
-      ();
+    @{log Logger.DEBUG} ctxt (fn _ =>
+      Pretty.block [
+        Pretty.str "Higher-order pattern unifying ",
+        Util.pretty_terms ctxt [s, t]
+      ]
+      |> Pretty.string_of);
     unif try_hints_fun hints hints_unifier context binders (s, t)
   end
 

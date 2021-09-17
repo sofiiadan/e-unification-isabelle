@@ -1,12 +1,11 @@
 \<^marker>\<open>creator "Kevin Kappelmann"\<close>
 section \<open>Unification with Hints\<close>
 theory Unification_Hints
-imports Pure
+imports Logging.Logging
 begin
 paragraph \<open>Summary\<close>
 text \<open>Unification algorithms with hints.\<close>
 
-ML_file\<open>logger.ML\<close>
 ML_file\<open>unification_types.ML\<close>
 ML_file\<open>util.ML\<close>
 

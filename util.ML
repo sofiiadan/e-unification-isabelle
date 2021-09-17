@@ -1,3 +1,4 @@
+(*TODO: signature*)
 structure Unification_Util =
 struct
 
@@ -30,25 +31,40 @@ end
 fun pretty_env ctxt (Envir.Envir {tyenv, tenv,...}) =
   Pretty.list "(" ")" [pretty_tyenv ctxt tyenv, pretty_tenv ctxt tenv]
 
-fun trace_unif_result ctxt (t1,t2) (env, thm) =
-  (Logger.info ctxt writeln "Unification results:";
-  Logger.info ctxt (Pretty.writeln o pretty_env ctxt) env;
-  Logger.info ctxt (Pretty.writeln o pretty_thm ctxt) thm;
-  Logger.info ctxt (Pretty.writeln o pretty_terms ctxt)
-    [Envir.norm_term env t1, Envir.norm_term env t2])
+fun show_unif_result ctxt (t1,t2) (env, thm) =
+  (@{log} ctxt (K "Unification results:");
+  @{log} ctxt (fn _ => pretty_env ctxt env |> Pretty.string_of);
+  @{log} ctxt (fn _ => pretty_thm ctxt thm |> Pretty.string_of))
+
+(*We store a binder as ((name, typ), fresh Free variable), where the fresh free variable is used
+as a replacement for the corresponding bound variable, for example, when creating theorems
+underneath abstractions.*)
+type binder = (string * typ) * term
+
+fun new_binder context name T =
+  let
+    val ctxt = Context.proof_of context
+    val (name', ctxt') = yield_singleton Variable.variant_fixes name ctxt
+  in (Context.Proof ctxt', ((name, T), Free (name', T))) end
+
+fun binder_free binders = snd o nth binders
+
+(*replace all Bounds by corresponding Frees*)
+fun replace_binders binders tp = let val bvars = map snd binders
+  in apply2 (subst_bounds o pair bvars) tp end
 
 fun maxidx_of_terms ts = fold (Integer.max o maxidx_of_term) ts ~1
 
 fun empty_envir (t1, t2) = Envir.empty (maxidx_of_terms [t1, t2])
 
-fun trace_test_result ctxt tp unif =
+fun show_test_result ctxt tp unif =
   let
     val pctxt = Context.proof_of ctxt
     val sigma = unif ctxt tp (empty_envir tp)
-  in trace_unif_result pctxt tp sigma end
+  in show_unif_result pctxt tp sigma end
 
 fun norm_thm_types ctxt (Envir.Envir {tyenv, ...}) thm =
-  let 
+  let
     val prop = Thm.prop_of thm
     val norm_type = Envir.norm_type tyenv
     fun prep_type_entry x = (x, Thm.ctyp_of ctxt (norm_type (TVar x)))
@@ -57,7 +73,7 @@ fun norm_thm_types ctxt (Envir.Envir {tyenv, ...}) thm =
   in Thm.instantiate inst thm end
 
 fun norm_thm ctxt (env as Envir.Envir {tyenv,...}) thm =
-  let 
+  let
     val prop = Thm.prop_of thm
     val norm_type = Envir.norm_type tyenv
     val norm_term = Envir.norm_term env
@@ -77,15 +93,13 @@ fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
     in Envir.Envir {maxidx = maxidx', tenv = tenv, tyenv = tyenv'} end
     handle Type.TUNIFY =>
       let val ctxt = Context.proof_of context;
-      in 
-        (Logger.debug ctxt
+      in
+        (@{log Logger.DEBUG} ctxt
           (fn _ => Pretty.block [
               Pretty.str "Failed to unify types ",
               pretty_types ctxt (map (Envir.norm_type tyenv) [T, U])
-            ]
-            |> Pretty.writeln)
-          ();
-        raise Unification_Types.Unif)
+            ] |> Pretty.string_of);
+        raise Unification_Types.UNIF)
       end
 
 end

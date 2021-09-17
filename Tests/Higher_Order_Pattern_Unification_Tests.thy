@@ -17,26 +17,24 @@ ML_command\<open>
       nv = 10,
       ni = 10,
       max_h = 5,
-      max_args = 5
+      max_args = 4
     }
   end
   structure First_Order_Tests = First_Order_Unification_Tests(Test_Params)
-  (* val _ = First_Order_Tests.tests (Context.the_generic_context ()) (SpecCheck_Random.new ()) *)
-  val _ = First_Order_Tests.tests (Context.the_generic_context ())
-    (SpecCheck_Random.deterministic_seed 1252135)
+  val _ = First_Order_Tests.tests (Context.the_generic_context ()) (SpecCheck_Random.new ())
 \<close>
 
 subsection \<open>Unit Tests\<close>
 ML\<open>
   open Unification_Tests_Base
-  val trace_test_result = Unification_Util.trace_test_result
+  val show_test_result = Unification_Util.show_test_result
   val unify_hints = Higher_Order_Pattern_Unification.unify_hints
   val unify = Higher_Order_Pattern_Unification.unify
 \<close>
 
 paragraph \<open>Standard Unification\<close>
 ML_command\<open>
-  let 
+  let
     val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
     val context = Context.Proof ctxt
     val tests = map (apply2 (Syntax.read_term ctxt)) [
@@ -49,7 +47,7 @@ ML_command\<open>
         "(?x :: ?'X, ?y :: ?'Y, ?z :: ?'Z)",
         "((f :: ?'Y \<Rightarrow> ?'X) (?y :: ?'Y), (g :: ?'Z \<Rightarrow> ?'Y) (?z :: ?'Z), c :: ?'C)"
       )
-   ] 
+   ]
     val check_hints = check_unit_tests_hints tests
   in
     Lecker.test_group context () [
@@ -62,7 +60,7 @@ ML_command\<open>
 
 paragraph \<open>With Unification Hints\<close>
 ML_command\<open>
-  let 
+  let
     val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
       |> Variable.declare_term @{term "f :: (nat \<Rightarrow> nat) \<times> nat \<Rightarrow> nat"}
       |> Variable.declare_term @{term "g :: nat \<times> nat \<Rightarrow> nat"}
@@ -79,7 +77,7 @@ ML_command\<open>
       ("\<lambda> x y. 0 + Suc ?x", "\<lambda> x y. Suc 2"),
       ("\<lambda> (x :: nat) (y :: nat). y + (0 + x)", "\<lambda> (x :: nat) (y :: nat). x + (0 + y)"),
       ("f (\<lambda> u. g (?x, h), h)", "id (f (\<lambda> u. ?y, 0 + h))")
-   ] 
+   ]
     val check_hints = check_unit_tests_hints tests
   in
     Lecker.test_group context () [

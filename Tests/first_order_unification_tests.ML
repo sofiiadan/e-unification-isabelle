@@ -54,7 +54,7 @@ fun term_pair_gen ctxt =
 fun tests_identical context r =
   let fun check_identical name unif context =
     let
-      val ctxt = Context.proof_of context 
+      val ctxt = Context.proof_of context
       val term_gen' = term_gen ctxt
     in
       check_thm (Gen.map (fn t => (t, t)) term_gen')
@@ -71,7 +71,7 @@ fun tests_identical_env context r =
   let
     fun check_identical_env name unif context =
       let
-        val ctxt = Context.proof_of context 
+        val ctxt = Context.proof_of context
         val term_gen' = term_gen ctxt
       in
         check (Gen.map (fn t => (t, t)) term_gen')
@@ -92,7 +92,7 @@ fun tests_thm context r =
   let
     fun check_thm name unif context =
       let
-        val ctxt = Context.proof_of context 
+        val ctxt = Context.proof_of context
         val term_pair_gen' = term_pair_gen ctxt
       in Unification_Tests_Base.check_thm term_pair_gen' name unif context end
     val context' =
@@ -108,7 +108,7 @@ fun tests_thm context r =
 fun tests_replaced context r =
   let fun check_replaced name unif context =
     let
-      val ctxt = Context.proof_of context 
+      val ctxt = Context.proof_of context
       val term_gen' = term_gen ctxt
       val unvarify = map_aterms (fn (Var ((n, i), T)) => Free (n ^ Int.toString i, T) | T => T)
     in
@@ -126,12 +126,12 @@ fun tests_replaced context r =
 fun tests_symmetry context r =
   let fun check_thm_symmetry name unif context =
     let
-      val ctxt = Context.proof_of context 
+      val ctxt = Context.proof_of context
       val term_pair_gen' = term_pair_gen ctxt
       val thm_correct' = thm_correct context unif
     in
       check term_pair_gen' ("Symmetry of " ^ name)
-        (Prop.prop (fn tp =>  
+        (Prop.prop (fn tp =>
           try thm_correct' tp = try thm_correct' (swap tp)))
         context
     end
@@ -142,7 +142,7 @@ fun tests_symmetry context r =
     ]
   end
 
-fun generated_tests context r = 
+fun generated_tests context r =
   Lecker.test_group context r [
     tests_identical,
     tests_identical_env,
@@ -154,7 +154,7 @@ fun generated_tests context r =
 (** Unit tests **)
 (*** unifiable ***)
 fun unit_tests_unifiable context r =
-  let 
+  let
     val tests = [
       (Var (("x", 0), TVar (("X", 0), [])), Var (("x", 0), TVar (("Y", 0), []))),
       (Var (("x", 0), TVar (("X", 0), [])), Var (("x", 0), TFree ("'a", []))),
@@ -184,9 +184,9 @@ fun unit_tests_unifiable context r =
           Free ("b", TVar (("A", 0), []))
       )
     ]
-    fun check name unif context r = 
+    fun check name unif context r =
       check_list tests ("unifiable unit tests for " ^ name)
-        (Prop.prop (thm_correct context unif)) context 
+        (Prop.prop (thm_correct context unif)) context
       |> K r
   in
     Lecker.test_group context r [
@@ -197,12 +197,12 @@ fun unit_tests_unifiable context r =
 
 (*** non-unifiable ***)
 fun unit_tests_non_unifiable context r =
-  let 
+  let
     val unit_tests = [
       (Free("f", TFree("'a",[])), Free("f", TFree("'b",[]))),
       (Free("f", TFree("'a",[])), Free("g", TFree("'a",[])))
     ]
-    fun check name unif context r = 
+    fun check name unif context r =
       check_list unit_tests ("non-unifiable unit tests for " ^ name)
         (Prop.prop (not o can (thm_correct context unif))) context
       |> K r
@@ -216,7 +216,7 @@ fun unit_tests_non_unifiable context r =
 (* hint tests *)
 (** non-recursive tests **)
 fun unit_tests_hints_non_recursive context r =
-  let 
+  let
     val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic (Context.proof_of context)
     val hints = map (Skip_Proof.make_thm (Context.theory_of context) o Syntax.read_term ctxt) [
       "?x \<equiv> ?z \<Longrightarrow> ?y \<equiv> (0 :: nat) \<Longrightarrow> ?x + ?y \<equiv> ?z",
@@ -238,7 +238,7 @@ fun unit_tests_hints_non_recursive context r =
 
 (** multiple matching hints **)
 fun unit_tests_multiple_matching_hints context r =
-  let 
+  let
     val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic (Context.proof_of context)
     val hints = map (Skip_Proof.make_thm (Context.theory_of context) o Syntax.read_term ctxt) [
       "Suc ?x \<equiv> 1",
@@ -261,7 +261,7 @@ fun unit_tests_multiple_matching_hints context r =
 
 (** recursive hints **)
 fun unit_tests_hints_recursive context r =
-  let 
+  let
     val ctxt =
       Proof_Context.set_mode Proof_Context.mode_schematic (Context.proof_of context)
       |> Variable.declare_term @{term "f :: nat => nat"}
@@ -289,21 +289,21 @@ fun unit_tests_hints_recursive context r =
     ]
   end
 
-fun unit_tests_hints context r = 
+fun unit_tests_hints context r =
   Lecker.test_group context r [
     unit_tests_hints_non_recursive,
     unit_tests_multiple_matching_hints,
     unit_tests_hints_recursive
   ]
 
-fun unit_tests context r = 
+fun unit_tests context r =
   Lecker.test_group context r [
     unit_tests_unifiable,
     unit_tests_non_unifiable,
     unit_tests_hints
   ]
 
-fun tests context r = 
+fun tests context r =
   Lecker.test_group context r [
     unit_tests,
     generated_tests

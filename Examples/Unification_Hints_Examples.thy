@@ -10,7 +10,7 @@ paragraph \<open>Summary\<close>
 text \<open>Sample Applications for Unification Hints.\<close>
 
 ML\<open>
-  Theory.setup (
+  val _ = Theory.setup (
     ML_Antiquotation.inline_embedded \<^binding>\<open>term_pat\<close>
     (Args.term_pattern >> (ML_Syntax.atomic o ML_Syntax.print_term)))
 \<close>
@@ -40,9 +40,9 @@ ML\<open>
       @{term_pat "(?x :: ?'X \<Rightarrow> ?'R)"},
       @{term_pat "(?y :: ?'Y \<Rightarrow> ?'R)"}
     )
-  val env = 
-    Unify.unifiers ((Context.the_generic_context ()), Envir.empty 0, [(t,s)]) |> Seq.hd 
-  val _ = 
+  val env =
+    Unify.unifiers ((Context.the_generic_context ()), Envir.empty 0, [(t,s)]) |> Seq.hd
+  val _ =
     Unify.smash_unifiers (Context.the_generic_context ()) [(t,s)] (Envir.empty 0)
     |> Seq.hd
     |> Unification_Util.pretty_env @{context}
@@ -53,6 +53,7 @@ ML\<open>
   structure Util = Unification_Util
   val unify = Higher_Order_Pattern_Unification.unify_hints
 \<close>
+
 subsection \<open>Reflexive Tactics\<close>
 
 subsubsection \<open>Simple Arithmetic\<close>
@@ -75,7 +76,7 @@ by simp
 ML_command\<open>
   val t1 = @{term_pat "eval ?e"}
   val t2 = @{term_pat "1 + (2 + 7) ::int"}
-  val _ = Util.trace_test_result (Context.the_generic_context ()) (t1, t2) unify
+  val _ = Util.show_test_result (Context.the_generic_context ()) (t1, t2) unify
 \<close>
 
 subsubsection \<open>Arithmetic with Environment\<close>
@@ -104,7 +105,7 @@ lemma eval_adv_Var_zero [hints]: "e \<equiv> Var 0 \<Longrightarrow> \<Gamma> \<
 
 (*hints for expressions*)
 lemma eval_adv_Unit [hints]: "e \<equiv> Unit \<Longrightarrow> eval_adv (e, \<Gamma>) \<equiv> 1" by simp
-  
+
 lemma eval_adv_Mul [hints]:
   "e \<equiv> Mul e1 e2 \<Longrightarrow> m \<equiv> eval_adv (e1, \<Gamma>) \<Longrightarrow> n \<equiv> eval_adv (e2, \<Gamma>) \<Longrightarrow> eval_adv (e, \<Gamma>) \<equiv> m * n"
 by simp
@@ -112,10 +113,10 @@ by simp
 lemma eval_adv_Inv [hints]: "e1 \<equiv> Inv e2 \<Longrightarrow> n \<equiv> eval_adv (e2, \<Gamma>) \<Longrightarrow> eval_adv (e1, \<Gamma>) \<equiv> inverse n"
 by simp
 
-ML\<open>
+ML_command\<open>
   val t1 = @{term_pat "eval_adv ?e"};
   val t2 = @{term_pat "1 * inverse 3 * 5 :: real"}
-  val _ = Util.trace_test_result (Context.the_generic_context ()) (t1, t2) unify
+  val _ = Util.show_test_result (Context.the_generic_context ()) (t1, t2) unify
 \<close>
 
 end

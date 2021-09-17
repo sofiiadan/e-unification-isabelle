@@ -1,2 +1,0 @@
-# Unification extensions for Isabelle
-

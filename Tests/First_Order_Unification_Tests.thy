@@ -34,7 +34,7 @@ ML\<open>
 subsection \<open>Unit Tests\<close>
 paragraph \<open>Occurs-Check\<close>
 ML_command\<open>
-  let 
+  let
     val unit_tests = [
       (
         Var (("x", 0), TVar (("X", 0), [])),
@@ -67,7 +67,7 @@ ML_command\<open>
           )
       )
     ]
-    fun check name unif context _ = 
+    fun check name unif context _ =
       check_list unit_tests ("occurs-check for " ^ name)
         (Prop.prop (not o can (thm_correct context unif))) context
       |> K ()
@@ -75,6 +75,51 @@ ML_command\<open>
     Lecker.test_group (Context.the_generic_context ()) () [
       check "unify" unify,
       check "unify_hints" unify_hints
+    ]
+  end
+\<close>
+
+paragraph \<open>Lambda-Abstractions\<close>
+ML_command\<open>
+  let
+    val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
+      |> Variable.declare_term @{term "f :: nat \<Rightarrow> bool \<Rightarrow> nat"}
+    val context = Context.Proof ctxt
+    val hints = []
+    val tests = map (apply2 (Syntax.read_term ctxt))[
+      ("\<lambda> (x :: nat). (0 :: nat)", "\<lambda> (x :: nat). (0 :: nat)"),
+      ("\<lambda> (x :: nat). x", "\<lambda> (x :: nat). x"),
+      ("\<lambda> (x :: nat) (y :: bool). (x, y)", "\<lambda> (x :: nat) (y :: bool). (x, y)"),
+      ("\<lambda> (x :: nat) (y :: bool). f x y", "\<lambda> (x :: nat) (y :: bool). (?x :: nat \<Rightarrow> bool \<Rightarrow> ?'Z) x y")
+    ]
+    val check_hints = check_unit_tests_hints tests
+  in
+    Lecker.test_group context () [
+      check_hints true [] "unify" unify,
+      check_hints true [] "unify_hints without hints" unify_hints,
+      check_hints true [] "unify_hints with hints" unify_hints
+    ]
+  end
+\<close>
+
+ML_command\<open>
+  let
+    val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
+      |> Variable.declare_term @{term "f :: nat \<Rightarrow> bool \<Rightarrow> nat"}
+    val context = Context.Proof ctxt
+    val hints = map (Skip_Proof.make_thm (Context.theory_of context) o Syntax.read_term ctxt) [
+      "?x \<equiv> (0 :: nat) \<Longrightarrow> ?y \<equiv> ?z \<Longrightarrow> ?x + ?y \<equiv> ?z"
+    ]
+    val tests = map (apply2 (Syntax.read_term ctxt))[
+      ("\<lambda> (x :: nat) (y :: bool). x", "\<lambda> (x :: nat) (y :: bool). 0 + x"),
+      ("0 + (\<lambda> (x :: nat) (y :: bool). x) 0 ?y", "0 + (\<lambda> (x :: nat) (y :: bool). 0 + x) 0 ?z")
+    ]
+    val check_hints = check_unit_tests_hints tests
+  in
+    Lecker.test_group context () [
+      check_hints false [] "unify" unify,
+      check_hints false [] "unify_hints without hints" unify_hints,
+      check_hints true hints "unify_hints with hints" unify_hints
     ]
   end
 \<close>
