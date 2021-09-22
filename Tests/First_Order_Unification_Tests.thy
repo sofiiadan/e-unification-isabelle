@@ -69,7 +69,7 @@ ML_command\<open>
     ]
     fun check name unif context _ =
       check_list unit_tests ("occurs-check for " ^ name)
-        (Prop.prop (not o can (thm_correct context unif))) context
+        (Prop.prop (not o terms_unify_thms_correct context unif)) context
       |> K ()
   in
     Lecker.test_group (Context.the_generic_context ()) () [

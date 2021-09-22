@@ -3,7 +3,7 @@ section \<open>Unification Test Setup\<close>
 theory Unification_Tests_Base
 imports
   Main
-  Unification_Hints.Unification_Hints
+  E_Unification.E_Unification
   SpecCheck.SpecCheck
 begin
 paragraph \<open>Summary\<close>

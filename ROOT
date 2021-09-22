@@ -1,23 +1,23 @@
-chapter "Unification with Hints"
+chapter "E-Unification"
 
 session Logging in "Logging" = "Pure" +
 
   theories
     Logging
 
-session Unification_Hints = "Pure" +
+session E_Unification = "Pure" +
 
   sessions
     Logging
 
   theories
-    Unification_Hints
+    E_Unification
 
-session Unification_Hints_Tests in "Tests" = "HOL" +
+session E_Unification_Tests in "Tests" = "HOL" +
 
   sessions
     SpecCheck
-    Unification_Hints
+    E_Unification
 
   directories
     "../Examples"

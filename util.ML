@@ -1,44 +1,101 @@
-(*TODO: signature*)
+signature UNIFICATION_UTIL =
+sig
+
+  (* pretty-printing *)
+  val pretty_types : Proof.context -> typ list -> Pretty.T
+  val pretty_terms : Proof.context -> term list -> Pretty.T
+  val pretty_thm : Proof.context -> thm -> Pretty.T
+
+  val pretty_tyenv : Proof.context -> Type.tyenv -> Pretty.T
+  val pretty_tenv : Proof.context -> Envir.tenv -> Pretty.T
+  val pretty_env : Proof.context -> Envir.env -> Pretty.T
+
+  (* sequences *)
+  (*raises exception if sequence is empty and returns the sequence otherwise*)
+  val seq_try : exn -> 'a Seq.seq -> 'a Seq.seq
+  val seq_is_empty : 'a Seq.seq -> bool
+
+  (* terms and environments *)
+  val maxidx_of_terms : term list -> int
+  (*returns empty environment with maxidx set to maximum of given terms*)
+  val empty_envir : term * term -> Envir.env
+
+  (* binders *)
+  (*We store a binder as ((name, typ), fresh Free variable), where the fresh free variable is used
+  as a replacement for the corresponding bound variable, for example, when creating theorems
+  underneath abstractions.*)
+  type binder = (string * typ) * term
+  val new_binder : Context.generic -> string -> typ -> Context.generic * binder
+  (*returns free variable corresponding to the given binder*)
+  val binder_free : binder list -> int -> term
+  (*replaces all binders by their corresponding free variable in the given term*)
+  val replace_binders : binder list -> term -> term
+
+  (* instantiations *)
+  (*normalise and abstract over a given variable*)
+  val abstract : Proof.context -> string -> term -> Envir.env * thm -> Envir.env * thm
+  val norm_thm_types : Proof.context -> Envir.env -> thm -> thm
+  val norm_thm : Proof.context -> Envir.env -> thm -> thm
+
+ (*raises Unification_Base.UNIF on failure*)
+  val unify_types : Context.generic -> typ * typ -> Envir.env -> Envir.env
+
+  val log_unif_result : Proof.context -> term * term -> Envir.env * thm -> unit
+  val log_unif_results : Proof.context -> term * term -> Unification_Base.unifier -> unit
+  val log_unif_results' : int -> Proof.context  -> term * term -> Unification_Base.unifier -> unit
+
+end
+
 structure Unification_Util =
 struct
 
-fun pretty_terms ctxt = Pretty.list "" "" o map (Syntax.pretty_term ctxt)
+(* pretty-printing *)
+local
+val pretty_term = Syntax.pretty_term
+val pretty_type = Syntax.pretty_typ
 
-fun pretty_types ctxt = Pretty.list "" "" o map (Syntax.pretty_typ ctxt)
+fun pretty_env_aux show_entry =
+  Vartab.dest
+  #> map show_entry
+  #> Pretty.list "[" "]"
 
+fun pretty_env_entry show (s, t) = Pretty.enum " := " "" "" (map show [s, t])
+in
+
+fun pretty_types ctxt = Pretty.block o Pretty.commas o map (pretty_type ctxt)
+fun pretty_terms ctxt = Pretty.block o Pretty.commas o map (pretty_term ctxt)
 fun pretty_thm ctxt = Syntax.pretty_term ctxt o Thm.prop_of
 
-fun pretty_helper_env aux env =
-  env |> Vartab.dest
-      |> map aux
-      |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " := ", s2])
-      |> Pretty.list "[" "]"
-
-fun pretty_tyenv ctxt tyenv =
+fun pretty_tyenv ctxt =
   let
+    val show_entry = pretty_env_entry (pretty_type ctxt)
     fun get_typs (v, (s, T)) = (TVar (v, s), T)
-    val print = apply2 (Syntax.pretty_typ ctxt)
-  in pretty_helper_env (print o get_typs) tyenv
-end
+  in pretty_env_aux (show_entry o get_typs) end
 
-fun pretty_tenv ctxt tenv =
+fun pretty_tenv ctxt =
   let
+    val show_entry = pretty_env_entry (pretty_term ctxt)
     fun get_trms (v, (T, t)) = (Var (v, T), t)
-    val print = apply2 (Syntax.pretty_term ctxt)
-  in pretty_helper_env (print o get_trms) tenv
+  in pretty_env_aux (show_entry o get_trms) end
+
 end
 
-fun pretty_env ctxt (Envir.Envir {tyenv, tenv,...}) =
-  Pretty.list "(" ")" [pretty_tyenv ctxt tyenv, pretty_tenv ctxt tenv]
+fun pretty_env ctxt env =
+  Pretty.enum "," "(" ")" [pretty_tyenv ctxt (Envir.type_env env), pretty_tenv ctxt (Envir.term_env env)]
 
-fun show_unif_result ctxt (t1,t2) (env, thm) =
-  (@{log} ctxt (K "Unification results:");
-  @{log} ctxt (fn _ => pretty_env ctxt env |> Pretty.string_of);
-  @{log} ctxt (fn _ => pretty_thm ctxt thm |> Pretty.string_of))
+(* sequences *)
+fun seq_try exn sq = case Seq.pull sq of
+    NONE => raise exn
+  | SOME (v, sq') => Seq.cons v sq'
 
-(*We store a binder as ((name, typ), fresh Free variable), where the fresh free variable is used
-as a replacement for the corresponding bound variable, for example, when creating theorems
-underneath abstractions.*)
+fun seq_is_empty sq = is_none (Seq.pull sq)
+
+(* terms and environments *)
+fun maxidx_of_terms ts = fold (Integer.max o maxidx_of_term) ts ~1
+
+fun empty_envir (t1, t2) = Envir.empty (maxidx_of_terms [t1, t2])
+
+(* binders *)
 type binder = (string * typ) * term
 
 fun new_binder context name T =
@@ -50,18 +107,15 @@ fun new_binder context name T =
 fun binder_free binders = snd o nth binders
 
 (*replace all Bounds by corresponding Frees*)
-fun replace_binders binders tp = let val bvars = map snd binders
-  in apply2 (subst_bounds o pair bvars) tp end
+fun replace_binders binders t = let val bvars = map snd binders
+  in subst_bounds (bvars, t) end
 
-fun maxidx_of_terms ts = fold (Integer.max o maxidx_of_term) ts ~1
-
-fun empty_envir (t1, t2) = Envir.empty (maxidx_of_terms [t1, t2])
-
-fun show_test_result ctxt tp unif =
+(* instantiations *)
+fun abstract ctxt name bvar (env as Envir.Envir {tyenv,...}, thm) =
   let
-    val pctxt = Context.proof_of ctxt
-    val sigma = unif ctxt tp (empty_envir tp)
-  in show_unif_result pctxt tp sigma end
+    val bvar' = map_types (Envir.norm_type tyenv) bvar
+    val thm' = Unification_Base.abstract_rule name (Thm.cterm_of ctxt bvar') thm
+  in (env, thm') end
 
 fun norm_thm_types ctxt (Envir.Envir {tyenv, ...}) thm =
   let
@@ -99,8 +153,26 @@ fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
               Pretty.str "Failed to unify types ",
               pretty_types ctxt (map (Envir.norm_type tyenv) [T, U])
             ] |> Pretty.string_of);
-        raise Unification_Types.UNIF)
+        raise Unification_Base.UNIF)
       end
+
+fun log_unif_result ctxt _ (env, thm) =
+  (@{log} ctxt (K "Environment:");
+  @{log} ctxt (fn _ => pretty_env ctxt env |> Pretty.string_of);
+  @{log} ctxt (K "Theorem:");
+  @{log} ctxt (fn _ => pretty_thm ctxt thm |> Pretty.string_of))
+
+fun log_unif_results context tp unif =
+  let
+    val res = unif context tp (empty_envir tp) |> Seq.list_of
+    val ctxt = Context.proof_of context
+  in fold (log_unif_result ctxt tp #> K) res () end
+
+fun log_unif_results' n context tp unif =
+  let
+    val res = unif context tp (empty_envir tp) |> Seq.take n |> Seq.list_of
+    val ctxt = Context.proof_of context
+  in fold (log_unif_result ctxt tp #> K) res () end
 
 end
 

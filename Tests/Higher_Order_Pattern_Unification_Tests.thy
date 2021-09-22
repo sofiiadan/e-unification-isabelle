@@ -7,7 +7,9 @@ imports
 begin
 paragraph \<open>Summary\<close>
 text \<open>Tests for @{ML_structure "Higher_Order_Pattern_Unification"}.\<close>
-
+(* declare[[show_types]] *)
+(* config[Higher_Order_Pattern_Unification.Logger.log_level_config=600] *)
+(* config[Unification_Hints.Logger.log_level_config=1000] *)
 subsection \<open>Generated Tests\<close>
 ML_command\<open>
   structure Test_Params =
@@ -27,7 +29,6 @@ ML_command\<open>
 subsection \<open>Unit Tests\<close>
 ML\<open>
   open Unification_Tests_Base
-  val show_test_result = Unification_Util.show_test_result
   val unify_hints = Higher_Order_Pattern_Unification.unify_hints
   val unify = Higher_Order_Pattern_Unification.unify
 \<close>

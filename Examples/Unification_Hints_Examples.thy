@@ -4,10 +4,10 @@ section \<open>Examples\<close>
 theory Unification_Hints_Examples
 imports
   Complex_Main
-  Unification_Hints.Unification_Hints
+  E_Unification.E_Unification
 begin
 paragraph \<open>Summary\<close>
-text \<open>Sample Applications for Unification Hints.\<close>
+text \<open>Sample applications of unification hints.\<close>
 
 ML\<open>
   val _ = Theory.setup (
@@ -76,7 +76,7 @@ by simp
 ML_command\<open>
   val t1 = @{term_pat "eval ?e"}
   val t2 = @{term_pat "1 + (2 + 7) ::int"}
-  val _ = Util.show_test_result (Context.the_generic_context ()) (t1, t2) unify
+  val _ = Util.log_unif_results (Context.the_generic_context ()) (t1, t2) unify
 \<close>
 
 subsubsection \<open>Arithmetic with Environment\<close>
@@ -116,7 +116,7 @@ by simp
 ML_command\<open>
   val t1 = @{term_pat "eval_adv ?e"};
   val t2 = @{term_pat "1 * inverse 3 * 5 :: real"}
-  val _ = Util.show_test_result (Context.the_generic_context ()) (t1, t2) unify
+  val _ = Util.log_unif_results' 1 (Context.the_generic_context ()) (t1, t2) unify
 \<close>
 
 end

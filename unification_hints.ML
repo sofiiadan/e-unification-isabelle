@@ -1,4 +1,4 @@
-(*  Title:      Unification_Hints/unification_hints.ML
+(*  Title:      E_Unification/unification_hints.ML
     Author:     Kevin Kappelmann, Paul Bachmann
 
 Unification hints as introduced in "Hints in unification" by Asperti et al, 2009.
@@ -10,18 +10,10 @@ sig
 
   type hint = (term * term) * ((indexname * typ) * term) list * thm
 
-  val reflexive : cterm -> thm
-  val combination : thm -> thm -> thm
-  val symmetric : thm -> thm
-  val abstract_rule : string -> cterm -> thm -> thm
-
-  val reflexive_term : Context.generic -> term -> thm
-
   val gen_hint_list : Proof.context -> hint list
 
-  val try_hints : Context.generic -> Unification_Types.matcher -> Unification_Types.unifier ->
-    hint list -> Envir.env -> term * term -> (Envir.env * thm) Seq.seq
-
+  val try_hints : Unification_Base.matcher -> Unification_Base.unifier -> hint list ->
+    Unification_Base.unifier
 end
 
 structure Unification_Hints : UNIFICATION_HINTS =
@@ -45,13 +37,6 @@ fun pretty_hint ctxt (_, prems, thm) =
     ]
   end
 
-val reflexive = Thm.reflexive
-val combination = Thm.combination
-val symmetric = Thm.symmetric
-val abstract_rule = Thm.abstract_rule
-
-fun reflexive_term context t = reflexive (Thm.cterm_of (Context.proof_of context) t)
-
 fun incr_idx n = Logic.incr_indexes ([], [], n)
 
 (*increase indices in the premises of a hint*)
@@ -66,7 +51,7 @@ fun gen_hint thm = (
       (case Logic.dest_equals (Thm.concl_of thm) of
         (t1,t2) => (Envir.eta_contract t1, Envir.eta_contract t2),
       (Thm.prems_of thm
-        |> map ((fn (Var x,t) => (x,Envir.eta_contract t)) o Logic.dest_equals)),
+        |> map ((fn (Var x,t) => (x, Envir.eta_contract t)) o Logic.dest_equals)),
       Drule.eta_contraction_rule thm),
     ""
   )
@@ -77,7 +62,7 @@ fun gen_hint thm = (
 (*generates a list of hints from named theorems "hints"*)
 fun gen_hint_list ctxt =
   let
-    val (hs,strs) = Proof_Context.get_thms ctxt "hints"
+    val (hs, strs) = Proof_Context.get_thms ctxt "hints"
       |> map gen_hint
       |> ListPair.unzip
     val thm_strs = filter (fn x => x <> "") strs
@@ -99,7 +84,7 @@ in
   matches the pattern with (t1,t2) using match,
   unifies resulting unification problems using unif,
   returns SOME (env,thm) if successfull,*)
-fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
+fun try_hint match unif context (t1, t2) (Envir.Envir {maxidx, tenv, tyenv})
   (hint as ((P_raw, Q_raw), hint_prems_raw, hint_thm_raw)) =
   let
     val ctxt = Context.proof_of context
@@ -122,8 +107,8 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
       in
         (match' (P, t1) env |> match' (Q,t2), false)
         (*match against symmetric hint if first match fails*)
-        handle Unification_Types.MATCH => (match' (Q,t1) env |> match' (P,t2), true)
-          handle Unification_Types.MATCH => raise HINT_NO_MATCH
+        handle Unification_Base.MATCH => (match' (Q,t1) env |> match' (P,t2), true)
+          handle Unification_Base.MATCH => raise HINT_NO_MATCH
       end
     val match_env = Envir.Envir {tyenv=match_tyenv, tenv=match_tenv, maxidx=maxidx_new}
 
@@ -132,33 +117,30 @@ fun try_hint context match unif (Envir.Envir {maxidx, tenv, tyenv}) (t1, t2)
         Pretty.str " matched. Unifying premises..."]
       |> Pretty.string_of)
 
-    (*unify each hint premise and collect the theorems while iteratively
-      extending the environment*)
-    fun prem_unif (v, s) (env, thms) = unif context (Var v, s) env ||> (fn thm => thm :: thms)
-    val (env_res, prem_thms) = fold prem_unif hint_prems (match_env, [])
+    (*unify each hint premise and collect the theorems while iteratively extending the environment*)
+    fun unif_prem (v, s) = Seq.maps
+      (fn (env, thms) => unif context (Var v, s) env |> Seq.map (apsnd (fn thm => thm :: thms)))
+    val env_prem_thmsq = fold unif_prem hint_prems (Seq.single (match_env, []))
 
-    (*instantiate the theorems*)
-    val prem_thms_inst = map (Unification_Util.norm_thm ctxt env_res) prem_thms |> rev
-    val thm_inst = Unification_Util.norm_thm ctxt env_res hint_thm
-    (*discharge the hint premises; flip the theorem if needed*)
-    val thm_res = Drule.implies_elim_list thm_inst prem_thms_inst |> (if flip then symmetric else I)
-  in
-    @{log Logger.DEBUG} ctxt (fn _ =>
-      Pretty.block [Pretty.str "All premises unified; resulting theorem: ",
-        Unification_Util.pretty_thm ctxt thm_res]
-      |> Pretty.string_of);
-    SOME (env_res, thm_res)
-  end
-    handle
-      HINT_NO_MATCH => (@{log Logger.TRACE} (Context.proof_of context) (K "Hint does not match."); NONE)
-    | exn => if Exn.is_interrupt exn then Exn.reraise exn else
-        (@{log Logger.DEBUG} (Context.proof_of context) (K "Failed to unify premises.");
-        NONE)
+    fun inst_discharge (env_res, prem_thms) =
+      let
+        (*instantiate the theorems*)
+        val norm_thm = Unification_Util.norm_thm ctxt env_res
+        val prem_thms_inst = map norm_thm prem_thms |> rev
+        val hint_thm_inst = norm_thm hint_thm
+        (*discharge the hint premises; flip the theorem if needed*)
+        val thm_res = Drule.implies_elim_list hint_thm_inst prem_thms_inst
+          |> flip ? Unification_Base.symmetric
+      in (env_res, thm_res) end
+  in Seq.map inst_discharge env_prem_thmsq end
+  handle
+    HINT_NO_MATCH =>
+      (@{log Logger.TRACE} (Context.proof_of context) (K "Hint does not match."); Seq.empty)
 
 end
 
 (*try to apply every hint from the hint list*)
-fun try_hints context match unif hints envir (t1,t2) =
+fun try_hints match unif hints context (t1, t2) env =
   let val ctxt = Context.proof_of context
   in
     @{log Logger.DEBUG} ctxt (fn _ =>
@@ -166,7 +148,7 @@ fun try_hints context match unif hints envir (t1,t2) =
         Unification_Util.pretty_terms ctxt [t1, t2]]
       |> Pretty.string_of);
     Seq.of_list hints
-    |> Seq.map_filter (try_hint context match unif envir (t1,t2))
+    |> Seq.maps (try_hint match unif (Context.Proof ctxt) (t1, t2) env)
   end
 
 end
