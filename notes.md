@@ -1,6 +1,10 @@
+## Build
+
+You need to download the latest afp development version to `../afp-devel/`
+and use Isabelle2021 (release version) to build the sessions.
+
 ## Tasks
 
-0. Seq of theorems
 1. Beispiel, warum lineare Ordnung der Praemissen wichtig ist
 Future:
 2. Named theorems: Bessere Indexstruktur
