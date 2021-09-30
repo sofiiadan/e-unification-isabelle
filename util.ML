@@ -59,7 +59,11 @@ fun pretty_env_aux show_entry =
   #> map show_entry
   #> Pretty.list "[" "]"
 
-fun pretty_env_entry show (s, t) = Pretty.enum " := " "" "" (map show [s, t])
+fun pretty_env_entry show (s, t) = Pretty.block [show s, Pretty.str " := ", show t]
+
+val pretty_record =
+  map (fn (key, entry) => Pretty.block [Pretty.str key, Pretty.str "=", entry])
+  #> Pretty.enum "," "{" "}"
 in
 
 fun pretty_types ctxt = Pretty.block o Pretty.commas o map (pretty_type ctxt)
@@ -78,10 +82,14 @@ fun pretty_tenv ctxt =
     fun get_trms (v, (T, t)) = (Var (v, T), t)
   in pretty_env_aux (show_entry o get_trms) end
 
-end
+fun pretty_env ctxt (Envir.Envir {maxidx, tyenv, tenv}) =
+  pretty_record [
+    ("maxidx", Pretty.str (string_of_int maxidx)),
+    ("tyenv", pretty_tyenv ctxt tyenv),
+    ("tenv", pretty_tenv ctxt tenv)
+  ]
 
-fun pretty_env ctxt env =
-  Pretty.enum "," "(" ")" [pretty_tyenv ctxt (Envir.type_env env), pretty_tenv ctxt (Envir.term_env env)]
+end
 
 (* sequences *)
 fun seq_try exn sq = case Seq.pull sq of
