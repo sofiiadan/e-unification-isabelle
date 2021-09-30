@@ -16,7 +16,7 @@ sig
   val DEBUG : log_level
   val TRACE : log_level
   val ALL   : log_level
-  val log_level_config : log_level Config.T
+  val log_level : log_level Config.T
 
   (*prints message created by passed function to passed channel if the context's
     current log_level is greater or equal than the passed level; uses lazy
@@ -65,11 +65,10 @@ val TRACE = 600
 val ALL = 1000
 
 (*setup config value log_level_<P.name>, e.g. log_level_unifier*)
-val log_level_config =
-  Attrib.setup_config_int (Binding.make ("log_level_" ^ P.name, P.pos)) (K INFO)
+val log_level = Attrib.setup_config_int (Binding.make ("log_level_" ^ P.name, P.pos)) (K INFO)
 
-fun log ctxt log_level print_f message_f =
-  if log_level <= Config.get ctxt log_level_config then print_f (message_f ())
+fun log ctxt level print_f message_f =
+  if level <= Config.get ctxt log_level then print_f (message_f ())
   else ()
 
 fun default_output log_level =

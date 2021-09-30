@@ -76,7 +76,7 @@ by simp
 ML_command\<open>
   val t1 = @{term_pat "eval ?e"}
   val t2 = @{term_pat "1 + (2 + 7) ::int"}
-  val _ = Util.log_unif_results (Context.the_generic_context ()) (t1, t2) unify
+  val _ = Util.log_unif_results @{context} (t1, t2) unify
 \<close>
 
 subsubsection \<open>Arithmetic with Environment\<close>
@@ -116,7 +116,7 @@ by simp
 ML_command\<open>
   val t1 = @{term_pat "eval_adv ?e"};
   val t2 = @{term_pat "1 * inverse 3 * 5 :: real"}
-  val _ = Util.log_unif_results' 1 (Context.the_generic_context ()) (t1, t2) unify
+  val _ = Util.log_unif_results' 1 @{context} (t1, t2) unify
 \<close>
 
 end

@@ -29,7 +29,7 @@ val log =
       body
   end
 
-val new_logger = ML_Antiquotation.inline @{binding "new_logger"}
+val new_logger = ML_Antiquotation.inline_embedded @{binding "new_logger"}
   (Scan.lift Args.embedded_position >>
     (fn (name, pos) => cat_lines [
       "Logger(struct val name = \"" ^ name ^ "\"",

@@ -12,31 +12,31 @@ sig
   val term_pair_gen' : Proof.context -> int -> int -> int * int * int * int ->
     int -> int -> (term * term) SpecCheck_Generator.gen
 
-  val thms_correct : Context.generic -> Unification_Base.unifier ->
+  val thms_correct : Proof.context -> Unification_Base.unifier ->
     (term * term) SpecCheck_Property.pred
 
-  val terms_unify : Context.generic -> Unification_Base.unifier ->
+  val terms_unify : Proof.context -> Unification_Base.unifier ->
     (term * term) SpecCheck_Property.pred
 
-  val terms_unify_thms_correct : Context.generic -> Unification_Base.unifier ->
+  val terms_unify_thms_correct : Proof.context -> Unification_Base.unifier ->
     (term * term) SpecCheck_Property.pred
 
-  val add_hints : thm list -> Context.generic -> Context.generic
+  val add_hints : thm list -> Proof.context -> Proof.context
 
   val check : (term * term, 'a) SpecCheck_Generator.gen_state -> string ->
     (term * term) SpecCheck_Property.prop ->
-    (Context.generic, 'a) Lecker.test_state
+    (Proof.context, 'a) Lecker.test_state
 
   val check_thm : (term * term, 'a) SpecCheck_Generator.gen_state -> string ->
-    Unification_Base.unifier -> (Context.generic, 'a) Lecker.test_state
+    Unification_Base.unifier -> (Proof.context, 'a) Lecker.test_state
 
   val check_list : (term * term) list -> string ->
-    (term * term) SpecCheck_Property.prop -> Context.generic ->
+    (term * term) SpecCheck_Property.prop -> Proof.context ->
     (term * term) Seq.seq
 
   val check_unit_tests_hints : (term * term) list -> bool -> thm list ->
     string -> Unification_Base.unifier ->
-    (Context.generic, 'a) Lecker.test_state
+    (Proof.context, 'a) Lecker.test_state
 
 end
 
@@ -76,18 +76,15 @@ fun term_gen' ctxt nv ni weights max_h max_args =
 fun term_pair_gen' ctxt nv ni weights max_h max_args =
   term_pair_gen ctxt nv ni weights (num_args_gen max_h max_args)
 
-fun show_termpair context =
-  let
-    val ctxt = Context.proof_of context
-    val pretty_term = Syntax.pretty_term ctxt
+fun show_termpair ctxt =
+  let val pretty_term = Syntax.pretty_term ctxt
   in SpecCheck_Show.zip pretty_term pretty_term end
 
 val shrink_termpair = SpecCheck_Shrink.product SpecCheck_Shrink.term SpecCheck_Shrink.none
 
-fun thms_correct context unif tp =
+fun thms_correct ctxt unif tp =
   let
-    val ctxt = Context.proof_of context
-    val env_thmq = unif context tp (Unification_Util.empty_envir tp)
+    val env_thmq = unif ctxt tp (Unification_Util.empty_envir tp)
     fun thm_correct (env, thm) =
       let
         val (t1, t2) = apply2 (Envir.norm_term env) tp
@@ -96,36 +93,38 @@ fun thms_correct context unif tp =
       in List.all Envir.aeconv [(t1, lhs), (t2, rhs)] end
   in List.all thm_correct (Seq.list_of env_thmq) end
 
-fun terms_unify context unif tp =
+fun terms_unify ctxt unif tp =
   Unification_Util.empty_envir tp
-  |> unif context tp
+  |> unif ctxt tp
   |> Unification_Util.seq_is_empty
   |> not
   handle Unification_Base.PATTERN => false
 
-fun terms_unify_thms_correct context unif tp =
-  terms_unify context unif tp andalso thms_correct context unif tp
+fun terms_unify_thms_correct ctxt unif tp =
+  terms_unify ctxt unif tp andalso thms_correct ctxt unif tp
 
-fun check gen name prop context =
-  SpecCheck.check_shrink (show_termpair context) shrink_termpair
-    gen name prop (Context.proof_of context)
+fun check gen name prop ctxt =
+  SpecCheck.check_shrink (show_termpair ctxt) shrink_termpair
+    gen name prop ctxt
 
-fun check_thm gen name unif context = check gen ("Theorem correctness: " ^ name)
-  (SpecCheck_Property.==> (terms_unify context unif, thms_correct context unif))
-  context
+fun check_thm gen name unif ctxt = check gen ("Theorem correctness: " ^ name)
+  (SpecCheck_Property.==> (terms_unify ctxt unif, thms_correct ctxt unif))
+  ctxt
 
-fun check_list tests name prop context =
-  SpecCheck.check_list (show_termpair context) tests name prop (Context.proof_of context)
+fun check_list tests name prop ctxt =
+  SpecCheck.check_list (show_termpair ctxt) tests name prop ctxt
 
-val add_hints = fold (Named_Theorems.add_thm @{named_theorems "hints"})
+fun add_hints thms ctxt =
+  fold (Named_Theorems.add_thm @{named_theorems "hints"}) thms (Context.Proof ctxt)
+  |> Context.proof_of
 
-fun check_unit_tests_hints tests should_succeed hints name unif context s =
-  let val context' = add_hints hints context
+fun check_unit_tests_hints tests should_succeed hints name unif ctxt s =
+  let val ctxt' = add_hints hints ctxt
   in
     check_list tests name
       (SpecCheck_Property.prop
-        (fn tp => terms_unify_thms_correct context' unif tp = should_succeed))
-      context'
+        (fn tp => terms_unify_thms_correct ctxt' unif tp = should_succeed))
+      ctxt'
     |> K s
   end
 

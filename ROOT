@@ -1,12 +1,10 @@
 chapter "E-Unification"
 
 session Logging in "Logging" = "Pure" +
-
   theories
     Logging
 
 session E_Unification = "Pure" +
-
   sessions
     Logging
 
@@ -14,7 +12,6 @@ session E_Unification = "Pure" +
     E_Unification
 
 session E_Unification_Tests in "Tests" = "HOL" +
-
   sessions
     SpecCheck
     E_Unification

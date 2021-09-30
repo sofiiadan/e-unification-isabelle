@@ -25,7 +25,7 @@ sig
   as a replacement for the corresponding bound variable, for example, when creating theorems
   underneath abstractions.*)
   type binder = (string * typ) * term
-  val new_binder : Context.generic -> string -> typ -> Context.generic * binder
+  val new_binder : Proof.context -> string -> typ -> Proof.context * binder
   (*returns free variable corresponding to the given binder*)
   val binder_free : binder list -> int -> term
   (*replaces all binders by their corresponding free variable in the given term*)
@@ -38,7 +38,7 @@ sig
   val norm_thm : Proof.context -> Envir.env -> thm -> thm
 
  (*raises Unification_Base.UNIF on failure*)
-  val unify_types : Context.generic -> typ * typ -> Envir.env -> Envir.env
+  val unify_types : Proof.context -> typ * typ -> Envir.env -> Envir.env
 
   val log_unif_result : Proof.context -> term * term -> Envir.env * thm -> unit
   val log_unif_results : Proof.context -> term * term -> Unification_Base.unifier -> unit
@@ -46,7 +46,7 @@ sig
 
 end
 
-structure Unification_Util =
+structure Unification_Util : UNIFICATION_UTIL =
 struct
 
 (* pretty-printing *)
@@ -98,11 +98,9 @@ fun empty_envir (t1, t2) = Envir.empty (maxidx_of_terms [t1, t2])
 (* binders *)
 type binder = (string * typ) * term
 
-fun new_binder context name T =
-  let
-    val ctxt = Context.proof_of context
-    val (name', ctxt') = yield_singleton Variable.variant_fixes name ctxt
-  in (Context.Proof ctxt', ((name, T), Free (name', T))) end
+fun new_binder ctxt name T =
+  let val (name', ctxt') = yield_singleton Variable.variant_fixes name ctxt
+  in (ctxt', ((name, T), Free (name', T))) end
 
 fun binder_free binders = snd o nth binders
 
@@ -138,23 +136,18 @@ fun norm_thm ctxt (env as Envir.Envir {tyenv,...}) thm =
     val inst = (type_inst, term_inst)
   in Thm.instantiate inst thm end
 
-fun unify_types context (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
+fun unify_types ctxt (T, U) (env as Envir.Envir {maxidx, tenv, tyenv}) =
   if T = U then env
   else
-    let
-      val thy = Context.theory_of context
-      val (tyenv', maxidx') = Sign.typ_unify thy (T, U) (tyenv, maxidx)
+    let val (tyenv', maxidx') = Sign.typ_unify (Proof_Context.theory_of ctxt) (T, U) (tyenv, maxidx)
     in Envir.Envir {maxidx = maxidx', tenv = tenv, tyenv = tyenv'} end
     handle Type.TUNIFY =>
-      let val ctxt = Context.proof_of context;
-      in
-        (@{log Logger.DEBUG} ctxt
-          (fn _ => Pretty.block [
-              Pretty.str "Failed to unify types ",
-              pretty_types ctxt (map (Envir.norm_type tyenv) [T, U])
-            ] |> Pretty.string_of);
-        raise Unification_Base.UNIF)
-      end
+      (@{log Logger.DEBUG} ctxt
+        (fn _ => Pretty.block [
+            Pretty.str "Failed to unify types ",
+            pretty_types ctxt (map (Envir.norm_type tyenv) [T, U])
+          ] |> Pretty.string_of);
+      raise Unification_Base.UNIF)
 
 fun log_unif_result ctxt _ (env, thm) =
   (@{log} ctxt (K "Environment:");
@@ -162,16 +155,12 @@ fun log_unif_result ctxt _ (env, thm) =
   @{log} ctxt (K "Theorem:");
   @{log} ctxt (fn _ => pretty_thm ctxt thm |> Pretty.string_of))
 
-fun log_unif_results context tp unif =
-  let
-    val res = unif context tp (empty_envir tp) |> Seq.list_of
-    val ctxt = Context.proof_of context
+fun log_unif_results ctxt tp unif =
+  let val res = unif ctxt tp (empty_envir tp) |> Seq.list_of
   in fold (log_unif_result ctxt tp #> K) res () end
 
-fun log_unif_results' n context tp unif =
-  let
-    val res = unif context tp (empty_envir tp) |> Seq.take n |> Seq.list_of
-    val ctxt = Context.proof_of context
+fun log_unif_results' n ctxt tp unif =
+  let val res = unif ctxt tp (empty_envir tp) |> Seq.take n |> Seq.list_of
   in fold (log_unif_result ctxt tp #> K) res () end
 
 end
