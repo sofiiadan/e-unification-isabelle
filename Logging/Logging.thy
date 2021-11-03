@@ -30,7 +30,7 @@ val _ =
           |> String.concatWith " #> "
         val decl = "fn _ => (" ^ put_configs_string ^ ")"
       in
-        Isar_Cmd.declaration {syntax = false, pervasive = false} (Input.source true decl range)
+        Isar_Cmd.declaration {syntax = false, pervasive = false} (Input.source false decl range)
       end
   in
     Outer_Syntax.local_theory @{command_keyword "config"} "set configurations"

@@ -12,8 +12,8 @@ fun show_pos pos = "Position.here (" ^ ML_Syntax.print_position pos ^ ")"
 
 val log =
   let
-    val scan_default = Scan.lift o Scan.optional Args.embedded
-    val scan_option = Scan.lift (Scan.option Args.embedded)
+    val scan_default = Scan.lift o Scan.optional Args.name
+    val scan_option = Scan.lift (Scan.option Args.name)
     fun body ts (log_level, logger, output_opt) ctxt =
       let
         val output = the_default ("Root_Logger.default_output " ^ log_level) output_opt
@@ -24,13 +24,15 @@ val log =
           ]
       in (K ("", code), ctxt) end
   in
+    (*use `declaration` rather than `inline` because `declaration` passes the token list, which can
+      be used to retrieve a position even when no arguments are passed to the scanner*)
     ML_Antiquotation.declaration @{binding "log"}
       (scan_default "Root_Logger.INFO" -- scan_default "Logger" -- scan_option >> Scan.triple1)
       body
   end
 
-val new_logger = ML_Antiquotation.inline_embedded @{binding "new_logger"}
-  (Scan.lift Args.embedded_position >>
+val new_logger = ML_Antiquotation.inline @{binding "new_logger"}
+  (Scan.lift Args.name_position >>
     (fn (name, pos) => cat_lines [
       "Logger(struct val name = \"" ^ name ^ "\"",
       "val pos = " ^ ML_Syntax.print_position pos ^ "; end)"
