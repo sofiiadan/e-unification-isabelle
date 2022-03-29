@@ -113,6 +113,37 @@ fun try_hints match unif hints ctxt (t1, t2) env =
   Seq.of_list hints
   |> Seq.maps (try_hint match unif ctxt (t1, t2) env))
 
+(*TODO: index hints in proper term index (cf. simplifier)*)
+(* datatype unif_hints_set = Unif_Hints_Set of {hints : hint Net.net}
+
+val empty_unif_hints_set = Unif_Hints_Set {hints = Net.empty}
+val eq_ = Thm.eq_thm_prop (thm1, thm2)
+
+fun merge_unif_hints_set uhs1 uhs2  =
+  if pointer_eq (uhs1, uhs2) then uhs1
+  else
+    let
+      val Unif_Hints_Set {hints = hints1} = uhs1;
+      val Unif_Hints_Set {hints = hints2} = uhs2;
+      val merged_hints = Net.merge eq_rrule (hints1, hints2);
+    in Unif_Hints_Set {hints = merged_hints} end
+
+structure Unif_Hints_Set = Generic_Data
+(
+  type T = unif_hints_set
+  val empty = empty_unif_hints_set
+  val extend = I
+  val merge = merge_unif_hints_set
+)
+
+fun attrib f = Thm.declaration_attribute (map_ss o f);
+val unif_hint_add = attrib undefined
+val unif_hint_del = attrib undefined
+
+val _ = Theory.setup (
+  Attrib.setup @{binding unif_hint} (Attrib.add_del unif_hint_add unif_hint_del)
+    "declaration of unification hint") *)
+
 (*generates a hint from a theorem,
   returns (SOME hint,"") if successful,
   (NONE,thm_name) otherwise*)
@@ -144,7 +175,5 @@ fun gen_hint_list ctxt =
     |> map Option.valOf
     |> rev
   end
-
-
 
 end

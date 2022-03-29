@@ -1,8 +1,9 @@
 \<^marker>\<open>creator "Kevin Kappelmann"\<close>
 section \<open>E-Unification\<close>
 theory E_Unification
-imports Logging.Logging
+  imports Logging.Logging
 begin
+
 paragraph \<open>Summary\<close>
 text \<open>Unification modulo equations.\<close>
 

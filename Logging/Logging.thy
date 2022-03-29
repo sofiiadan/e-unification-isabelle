@@ -6,7 +6,7 @@ keywords "config" :: thy_decl
 begin
 paragraph \<open>Summary\<close>
 text \<open>Generic logging inspired by Apache's Log4J 2
-🌐\<open>https://logging.apache.org/log4j/2.x/manual/customloglevels.html\<close>
+\<^url>\<open>https://logging.apache.org/log4j/2.x/manual/customloglevels.html\<close>
 \<close>
 
 ML_file\<open>logger.ML\<close>

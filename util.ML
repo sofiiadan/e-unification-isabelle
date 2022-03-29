@@ -123,24 +123,41 @@ fun abstract ctxt name bvar (env as Envir.Envir {tyenv,...}, thm) =
     val thm' = Unification_Base.abstract_rule name (Thm.cterm_of ctxt bvar') thm
   in (env, thm') end
 
+(*collect and normalise TVars of a term*)
+fun collect_norm_types ctxt tyenv t =
+  let
+    val norm_type = Envir.norm_type tyenv
+    fun prep_type_entry x = (x, Thm.ctyp_of ctxt (norm_type (TVar x)))
+  in
+    fold_types (fold_atyps (fn (TVar v) => TVars.add (prep_type_entry v) | _ => I)) t
+    |> TVars.build
+  end
+
+(*collect and normalise Vars of a term*)
+fun collect_norm_terms ctxt (env as Envir.Envir {tyenv,...}) t =
+  let
+    val norm_type = Envir.norm_type tyenv
+    val norm_term = Envir.norm_term env
+    fun prep_term_entry (x as (n, T)) = ((n, norm_type T), Thm.cterm_of ctxt (norm_term (Var x)))
+  in
+    fold_aterms (fn (Var v) => Vars.add (prep_term_entry v) | _ => I) t
+    |> Vars.build
+  end
+
+(*normalise types of a theorem*)
 fun norm_thm_types ctxt (Envir.Envir {tyenv, ...}) thm =
   let
     val prop = Thm.prop_of thm
-    val norm_type = Envir.norm_type tyenv
-    fun prep_type_entry x = (x, Thm.ctyp_of ctxt (norm_type (TVar x)))
-    val type_inst = Term.add_tvars prop [] |> map prep_type_entry
-    val inst = (type_inst, [])
+    val type_inst = collect_norm_types ctxt tyenv prop
+    val inst = (type_inst, Vars.empty)
   in Thm.instantiate inst thm end
 
+(*normalise a theorem*)
 fun norm_thm ctxt (env as Envir.Envir {tyenv,...}) thm =
   let
     val prop = Thm.prop_of thm
-    val norm_type = Envir.norm_type tyenv
-    val norm_term = Envir.norm_term env
-    fun prep_type_entry x = (x, Thm.ctyp_of ctxt (norm_type (TVar x)))
-    val type_inst = Term.add_tvars prop [] |> map prep_type_entry
-    fun prep_term_entry (x as (n, T)) = ((n, norm_type T), Thm.cterm_of ctxt (norm_term (Var x)))
-    val term_inst = Term.add_vars prop [] |> map prep_term_entry
+    val type_inst = collect_norm_types ctxt tyenv prop
+    val term_inst = collect_norm_terms ctxt env prop
     val inst = (type_inst, term_inst)
   in Thm.instantiate inst thm end
 
