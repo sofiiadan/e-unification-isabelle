@@ -16,25 +16,6 @@ ML\<open>
 \<close>
 
 (* ML\<open>
-  val (s, t) = (
-      @{term_pat "\<lambda> (x :: ?'X1) (y :: ?'Y1) (z :: ?'Z1). (?a :: ?'Z1 \<Rightarrow> ?'X1 \<Rightarrow> ?'Y1 \<Rightarrow> ?'R1) z x y"},
-      @{term_pat "\<lambda> (x :: ?'X2) (y :: ?'Y2) (z :: ?'Z2). (?b :: ?'Y2 \<Rightarrow> ?'X2 \<Rightarrow> ?'Z2 \<Rightarrow> ?'R2) y x"}
-      (* @{term_pat "?a :: ?'Z1 \<Rightarrow> ?'X1 \<Rightarrow> ?'Y1 \<Rightarrow> ?'R1"},
-      @{term_pat "\<lambda> (x :: ?'X2). (?a :: ?'X2 \<Rightarrow> ?'Y2 \<Rightarrow> ?'Z2 \<Rightarrow> ?'R2) x"} *)
-      (* @{term_pat "(?x :: ?'X, ?y :: ?'Y, ?z :: ?'Z)"},
-      @{term_pat "((f :: ?'Y \<Rightarrow> ?'X) (?y :: ?'Y), (g :: ?'Z \<Rightarrow> ?'Y) (?z :: ?'Z), c :: ?'C)"} *)
-      (* @{term_pat "(?y :: ?'Y, ?y :: ?'Y, ?z :: ?'Z)"},
-      @{term_pat "(?x :: ?'X, ?z :: ?'Z, ?c :: ?'C)"} *)
-      (* @{term_pat "(?z :: ?'Z, ?y :: ?'Y, ?x :: ?'X)"}, *)
-      (* @{term_pat "(?y :: ?'Y, ?x :: ?'X, ?c :: ?'C)"} *)
-    )
-  val env = Higher_Order_Pattern_Unification.unify (Context.the_generic_context ()) (t, s)
-      (Unification_Util.empty_envir (s, t))
-  val _ = Unification_Util.pretty_env @{context} (fst env) |> Pretty.writeln
-  val _ = Unification_Util.norm_thm @{context} (fst env) (snd env)
-\<close> *)
-
-(* ML\<open>
   (*Pattern unifier does not unify types correctly*)
   val (t, s) = (
       @{term_pat "(?x :: ?'X \<Rightarrow> ?'R)"},

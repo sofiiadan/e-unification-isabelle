@@ -37,6 +37,7 @@ struct
 
 structure Prop = SpecCheck_Property
 structure Gen = SpecCheck_Generator
+structure UUtil = Unification_Util
 open Unification_Tests_Base
 
 val weights = (1, 1, 1, 0)
@@ -56,7 +57,7 @@ fun tests_identical ctxt r =
   let fun check_identical name unif ctxt =
     let val term_gen' = term_gen ctxt
     in
-      check_thm (Gen.map (fn t => (t, t)) term_gen')
+      check_thm_unif (Gen.map (fn t => (t, t)) term_gen')
         ("Unifying identical terms with " ^ name) unif ctxt
     end
   in
@@ -74,7 +75,7 @@ fun tests_identical_env ctxt r =
         check (Gen.map (fn t => (t, t)) term_gen')
           ("Unifying identical terms does not change environment with " ^ name)
           (Prop.==> (terms_unify ctxt unif,
-            (fn tp => unif ctxt tp (Unification_Util.empty_envir tp)
+            (fn tp => unif ctxt tp (UUtil.empty_envir tp)
               |> Seq.list_of
               |> List.all (Envir.is_empty o fst))))
           ctxt
@@ -89,14 +90,14 @@ fun tests_identical_env ctxt r =
 (*** unification of randomly generated terms ***)
 fun tests_thm ctxt r =
   let
-    fun check_thm name unif ctxt =
+    fun check_thm' name unif ctxt =
       let val term_pair_gen' = term_pair_gen ctxt
-      in Unification_Tests_Base.check_thm term_pair_gen' name unif ctxt end
+      in check_thm_unif term_pair_gen' name unif ctxt end
     val ctxt' = Config.put SpecCheck_Configuration.max_discard_ratio 100 ctxt
   in
     Lecker.test_group ctxt' r [
-      check_thm "unify" P.unify,
-      check_thm "unify_hints" P.unify_hints
+      check_thm' "unify" P.unify,
+      check_thm' "unify_hints" P.unify_hints
     ]
   end
 
@@ -106,7 +107,7 @@ fun tests_replaced ctxt r =
       val term_gen' = term_gen ctxt
       val unvarify = map_aterms (fn (Var ((n, i), T)) => Free (n ^ Int.toString i, T) | T => T)
     in
-      check_thm (Gen.map (fn t => (t, unvarify t)) term_gen')
+      check_thm_unif (Gen.map (fn t => (t, unvarify t)) term_gen')
         ("Unifying terms with Var replaced by Free for " ^ name) unif ctxt
     end
   in
@@ -121,7 +122,7 @@ fun tests_symmetry ctxt r =
   let fun check_thm_symmetry name unif ctxt =
     let
       val term_pair_gen' = term_pair_gen ctxt
-      val terms_unify_thms_correct' = terms_unify_thms_correct ctxt unif
+      val terms_unify_thms_correct' = terms_unify_thms_correct_unif ctxt unif
     in
       check term_pair_gen' ("Symmetry of " ^ name)
         (Prop.prop (fn tp =>
@@ -179,7 +180,7 @@ fun unit_tests_unifiable ctxt r =
     ]
     fun check name unif ctxt r =
       check_list tests ("unifiable unit tests for " ^ name)
-        (Prop.prop (terms_unify_thms_correct ctxt unif)) ctxt
+        (Prop.prop (terms_unify_thms_correct_unif ctxt unif)) ctxt
       |> K r
   in
     Lecker.test_group ctxt r [
@@ -221,7 +222,7 @@ fun unit_tests_hints_non_recursive ctxt r =
       ("1 :: nat", "?a * ?b :: nat")
     ]
     fun check_hints should_succeed hints name =
-      check_unit_tests_hints tests should_succeed hints ("non-recursive hint unit tests for " ^ name)
+      check_unit_tests_hints_unif tests should_succeed hints ("non-recursive hint unit tests for " ^ name)
   in
     Lecker.test_group ctxt' r [
       check_hints false [] "unify" P.unify,
@@ -242,7 +243,7 @@ fun unit_tests_multiple_matching_hints ctxt r =
       ("Suc x :: nat", "1 :: nat")
     ]
     fun check_hints should_succeed hints name =
-      check_unit_tests_hints tests should_succeed hints
+      check_unit_tests_hints_unif tests should_succeed hints
         ("multiple matching hints unit tests for " ^ name)
   in
     Lecker.test_group ctxt' r [
@@ -276,12 +277,33 @@ fun unit_tests_hints_recursive ctxt r =
       ("f (g (f ((g 0) + 0)))", "g (f (f (f (g 0))))")
     ]
     fun check_hints should_succeed hints name =
-      check_unit_tests_hints tests should_succeed hints ("recursive hints unit tests for " ^ name)
+      check_unit_tests_hints_unif tests should_succeed hints ("recursive hints unit tests for " ^ name)
   in
     Lecker.test_group ctxt' r [
       check_hints false [] "unify" P.unify,
       check_hints false [] "unify_hints without hints" P.unify_hints,
       check_hints true hints "unify_hints with hints" P.unify_hints
+    ]
+  end
+
+(** disabling symmetric application of hints **)
+fun unit_tests_hints_try_symmetric ctxt r =
+  let
+    val ctxt' =
+      Proof_Context.set_mode Proof_Context.mode_schematic ctxt
+      |> Config.put Unification_Hints.try_symmetric false
+    val hints = map (Skip_Proof.make_thm (Proof_Context.theory_of ctxt') o Syntax.read_term ctxt') [
+        "?x \<equiv> ?z \<Longrightarrow> ?y \<equiv> (0 :: nat) \<Longrightarrow> ?x + ?y \<equiv> ?z"
+      ]
+    val (tests_correct, tests_incorrect) = map (apply2 (apply2 (Syntax.read_term ctxt'))) [
+        (("?x + 0 :: nat", "1 :: nat"), ("1 :: nat", "?x + 0 :: nat"))
+      ] |> split_list
+    fun check_hints should_succeed tests name =
+      check_unit_tests_hints_unif tests should_succeed hints ("no symmetric hints for " ^ name)
+  in
+    Lecker.test_group ctxt' r [
+      check_hints true tests_correct "matching problem" P.unify_hints,
+      check_hints false tests_incorrect "symmetric problem" P.unify_hints
     ]
   end
 
@@ -301,7 +323,7 @@ fun unit_tests_multiple_successful_hints ctxt r =
       in
         check_list tests ("multiple successful hints unit tests for " ^ name)
           (SpecCheck_Property.prop (fn tp =>
-            (Unification_Util.empty_envir tp
+            (UUtil.empty_envir tp
             |> unif ctxt' tp
             |> Seq.list_of
             |> length)
@@ -321,6 +343,7 @@ fun unit_tests_hints ctxt r =
   Lecker.test_group ctxt r [
     unit_tests_hints_non_recursive,
     unit_tests_multiple_matching_hints,
+    unit_tests_hints_try_symmetric,
     unit_tests_hints_recursive,
     unit_tests_multiple_successful_hints
   ]
