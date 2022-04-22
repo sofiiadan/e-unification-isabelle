@@ -22,7 +22,8 @@ config[Higher_Order_Pattern_Unification.Logger.log_level=1000]
 config[Unification_Hints.Logger.log_level=1000]
 config[Root_Logger.log_level=1000]
 config[show_types=true]
-config[eta_contract=false] *)
+config[eta_contract=false]
+config[Logging_Antiquotations.show_pos=true] *)
 
 subsection \<open>Matching\<close>
 subsubsection \<open>Unit Tests\<close>

@@ -171,7 +171,7 @@ fun e_match match_types match_theory ctxt (pt as (p, t)) env =
             |> apfst (Util.norm_term_match env)
           val _ = @{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
               Pretty.str "Failed to pattern match; calling theory matcher for ",
-              Util.pretty_terms ctxt [p', t']
+              Util.pretty_unif ctxt (p', t')
             ]
             |> Pretty.string_of)
         in match_theory ctxt (p', t') env end
@@ -180,7 +180,7 @@ fun e_match match_types match_theory ctxt (pt as (p, t)) env =
     (@{log Logger.DEBUG} ctxt (fn _ =>
       Pretty.block [
         Pretty.str "Higher-order pattern matching ",
-        Util.pretty_terms ctxt [Util.norm_term_match env p, t]
+        Util.pretty_unif ctxt (Util.norm_term_match env p, t)
       ]
       |> Pretty.string_of);
     match [] ctxt pt env)
@@ -441,7 +441,7 @@ fun e_unify unify_types unify_theory ctxt (tp as (s, t)) env =
             val (s', t') = apply2 (Util.norm_term_unif env o Util.replace_binders binders) tp'
             val _ = @{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
                 Pretty.str "Failed to pattern unify; calling theory unifier for ",
-                Util.pretty_terms ctxt [s', t']
+                Util.pretty_unif ctxt (s', t')
               ]
               |> Pretty.string_of)
           in unify_theory ctxt (s', t') env end
@@ -450,7 +450,7 @@ fun e_unify unify_types unify_theory ctxt (tp as (s, t)) env =
     (@{log Logger.DEBUG} ctxt (fn _ =>
       Pretty.block [
         Pretty.str "Higher-order pattern unifying ",
-        Util.pretty_terms ctxt (map (Envir.norm_term env) [s, t])
+        Util.pretty_unif ctxt (apply2 (Envir.norm_term env) (s, t))
       ]
       |> Pretty.string_of);
     unif [] ctxt tp env)

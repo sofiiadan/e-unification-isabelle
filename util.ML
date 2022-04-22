@@ -10,6 +10,8 @@ sig
   val pretty_tenv : Proof.context -> Envir.tenv -> Pretty.T
   val pretty_env : Proof.context -> Envir.env -> Pretty.T
 
+  val pretty_unif : Proof.context -> (term * term) -> Pretty.T
+
   (* sequences *)
   (*raises exception if sequence is empty and returns the sequence otherwise*)
   val seq_try : exn -> 'a Seq.seq -> 'a Seq.seq
@@ -121,6 +123,9 @@ fun pretty_env ctxt (Envir.Envir {maxidx, tyenv, tenv}) =
   ]
 
 end
+
+fun pretty_unif ctxt (t1, t2) =
+  Pretty.block [pretty_terms ctxt [t1], Pretty.str " \<equiv>\<^sup>? " , pretty_terms ctxt [t2]]
 
 (* sequences *)
 fun seq_try exn sq = case Seq.pull sq of

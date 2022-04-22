@@ -124,7 +124,7 @@ fun try_hints norm_thm_match match norm_thm_unif unif hints ctxt (t1, t2) env =
   in
     (@{log Logger.DEBUG} ctxt (fn _ =>
       Pretty.block [Pretty.str "Trying unification hints for ",
-        Util.pretty_terms ctxt [t1, t2]]
+        Util.pretty_unif ctxt (t1, t2)]
       |> Pretty.string_of);
     Seq.of_list hints
     |> Seq.maps (try_hint try_symmetric norm_thm_match match norm_thm_unif unif ctxt (t1, t2) env))

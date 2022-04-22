@@ -96,7 +96,7 @@ fun e_match match_types match_theory ctxt (p, t) env =
                   if Term.is_open t then
                     (@{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
                         Pretty.str "Failed to match (open term) ",
-                        Util.pretty_terms ctxt [p, t]
+                        Util.pretty_unif ctxt (p, t)
                       ]
                       |> Pretty.string_of);
                     raise Unification_Base.UNIF)
@@ -120,7 +120,7 @@ fun e_match match_types match_theory ctxt (p, t) env =
             |> apfst (Util.norm_term_match env)
           val _ = @{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
               Pretty.str "Failed to (standard) match; calling theory matcher for ",
-              Util.pretty_terms ctxt [p', t']
+              Util.pretty_unif ctxt (p', t')
             ]
             |> Pretty.string_of)
         in match_theory ctxt (p', t') env end
@@ -128,7 +128,7 @@ fun e_match match_types match_theory ctxt (p, t) env =
     (@{log Logger.DEBUG} ctxt (fn _ =>
       Pretty.block [
         Pretty.str "First-order matching ",
-        Util.pretty_terms ctxt [Util.norm_term_match env p, t]
+        Util.pretty_unif ctxt (Util.norm_term_match env p, t)
       ]
       |> Pretty.string_of);
     match [] ctxt (p, t) env)
@@ -199,7 +199,7 @@ fun e_unify unify_types unify_theory ctxt (s, t) env =
                   else if Term.is_open t orelse occurs x t then
                     (@{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
                         Pretty.str "Failed to unify (occurs check or open term) ",
-                        Util.pretty_terms ctxt [s, t]
+                        Util.pretty_unif ctxt (s, t)
                       ]
                       |> Pretty.string_of);
                     raise Unification_Base.UNIF)
@@ -221,7 +221,7 @@ fun e_unify unify_types unify_theory ctxt (s, t) env =
             apply2 (Util.norm_term_unif env o Util.replace_binders binders) (s, t)
           val _ = @{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
               Pretty.str "Failed to (standard) unify; calling theory unifier for ",
-              Util.pretty_terms ctxt [s', t']
+              Util.pretty_unif ctxt (s', t')
             ]
             |> Pretty.string_of)
         in unify_theory ctxt (s', t') env end
@@ -229,7 +229,7 @@ fun e_unify unify_types unify_theory ctxt (s, t) env =
     (@{log Logger.DEBUG} ctxt (fn _ =>
       Pretty.block [
         Pretty.str "First-order unifying ",
-        Util.pretty_terms ctxt (map (Util.norm_term_unif env) [s, t])
+        Util.pretty_unif ctxt (apply2 (Util.norm_term_unif env) (s, t))
       ]
       |> Pretty.string_of);
     unif [] ctxt (s, t) env)

@@ -26,7 +26,7 @@ val _ =
       let
         fun put_config_of ((c, _), (v, _)) = "Config.put_generic (" ^ c ^ ") (" ^ v ^ ")"
         val put_configs_string =
-          fold_rev (fn c => fn acc => put_config_of c :: acc) options []
+          fold_rev (fn c => cons (put_config_of c)) options []
           |> String.concatWith " #> "
         val decl = "fn _ => (" ^ put_configs_string ^ ")"
       in
@@ -37,5 +37,6 @@ val _ =
       (Parse.range Parse.options >> put_configs)
   end
 \<close>
+
 
 end
