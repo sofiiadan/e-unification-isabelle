@@ -42,7 +42,7 @@ fun pretty_hint ctxt (_, prems, thm) =
 
 fun incr_idx n = Logic.incr_indexes ([], [], n)
 
-(*increase indices in the premises of a hint*)
+(*increase indexes in the premises of a hint*)
 fun incr_indexes_prems n =
   map (fn (((s, i), T), t) => (((s, i + n), Logic.incr_tvar n T), incr_idx n t))
 

@@ -31,18 +31,13 @@ structure Util = Unification_Util
 (*check if sequence is empty or raise UNIF exception*)
 fun seq_try sq = Util.seq_try Unification_Base.UNIF sq
 
-(*occurs check*)
-fun occurs v (Var (x, _)) = x = v
-  | occurs v (s $ t) = occurs v s orelse occurs v t
-  | occurs v (Abs (_, _, t)) = occurs v t
-  | occurs _ _ = false
-
 (* first-order E-matching *)
 (*Note: by E-matching we mean "matching modulo equalities" in the general sense,
 i.e. when matching p \<equiv>? t, t may contain variables.*)
 fun e_match match_types match_theory ctxt (p, t) env =
   let
-    (*standard first-order matcher that calls match_theory on failure*)
+    (*standard first-order matcher that calls match_theory on failure;
+    generated theorem is already normalised wrt. the resulting environment*)
     fun match binders ctxt (p, t) (env as Envir.Envir {tenv, tyenv,...}) =
       (case (p, t) of
         (Abs (np, Tp, tp), Abs (nt, Tt, tt)) =>
@@ -89,25 +84,24 @@ fun e_match match_types match_theory ctxt (p, t) env =
       | (Var (x, Tx), _) =>
           (case Envir.lookup1 tenv (x, Util.norm_type_match tyenv Tx) of
             NONE =>
-              let
-                val Tt = fastype_of t
-                val try_update_env =
-                  (*open term check*)
-                  if Term.is_open t then
-                    (@{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
-                        Pretty.str "Failed to match (open term) ",
-                        Util.pretty_unif ctxt (p, t)
-                      ]
-                      |> Pretty.string_of);
-                    raise Unification_Base.UNIF)
+              if Term.is_open t then
+                (@{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
+                    Pretty.str "Failed to match (open term) ",
+                    Util.pretty_unif ctxt (p, t)
+                  ]
+                  |> Pretty.string_of);
+                (*directly return empty sequence because the theory unifier
+                cannot do anything meaningful at this point*)
+                Seq.empty)
+              else
+                let val Tt = fastype_of t
+                in
+                  (match_types ctxt (Tx, Tt) env,
+                    Unification_Base.reflexive_term ctxt t)
                   (*insert new substitution x \<mapsto> t*)
-                  else Envir.update ((x, Tt), t)
-              in
-                (match_types ctxt (Tx, Tt) env,
-                  Unification_Base.reflexive_term ctxt t)
-                |>> try_update_env
-                |> Seq.single
-              end
+                  |>> Envir.update ((x, Tt), t)
+                  |> Seq.single
+                end
           | SOME p' =>
             if Envir.aeconv (apply2 Envir.beta_norm (p', t)) then
               Seq.single (env, Unification_Base.reflexive_term ctxt t)
@@ -143,6 +137,7 @@ fun match_hints ctxt =
     val ctxt' = Config.put Unification_Hints.try_symmetric false ctxt
     val hints = Unification_Hints.gen_hint_list ctxt
     val norm_thm_match = Util.norm_thm Util.norm_type_match Util.norm_term_match
+    (*generated theorems are already in normal form ==> no normalisation needed*)
     val norm_thm_unif = K o K I
     fun match ctxt =
       e_match Util.match_types
@@ -152,6 +147,13 @@ fun match_hints ctxt =
   in match ctxt' end
 
 (* first-order E-unification *)
+
+(*occurs check*)
+fun occurs v (Var (x, _)) = x = v
+  | occurs v (s $ t) = occurs v s orelse occurs v t
+  | occurs v (Abs (_, _, t)) = occurs v t
+  | occurs _ _ = false
+
 fun e_unify unify_types unify_theory ctxt (s, t) env =
   let
     (*standard first-order unifier that calls unify_theory on failure*)
@@ -192,25 +194,37 @@ fun e_unify unify_types unify_theory ctxt (s, t) env =
             handle Same.SAME =>
               (unif' (s, Envir.norm_term_same env t) env
               handle Same.SAME =>
-                let val try_update_env =
-                  (*unifying x=x ==> no new term substitution necessary*)
-                  if is_Var t andalso x = fst (dest_Var t) then I
-                  (*open term and occurs check*)
-                  else if Term.is_open t orelse occurs x t then
-                    (@{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
-                        Pretty.str "Failed to unify (occurs check or open term) ",
-                        Util.pretty_unif ctxt (s, t)
-                      ]
-                      |> Pretty.string_of);
-                    raise Unification_Base.UNIF)
-                  (*insert new substitution x \<mapsto> t*)
-                  else Envir.vupdate ((x, Tx), t)
-                in
-                  (unify_types ctxt (Tx, fastype_of t) env,
-                    Unification_Base.reflexive_term ctxt s)
-                  |>> try_update_env
-                  |> Seq.single
-                end))
+                if Term.is_open t then
+                  (@{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
+                      Pretty.str "Failed to unify (open term) ",
+                      Util.pretty_unif ctxt (s, t)
+                    ]
+                    |> Pretty.string_of);
+                  (*directly return empty sequence because the theory unifier
+                  cannot do anything meaningful at this point*)
+                  Seq.empty)
+                else
+                  let
+                    val vars_eq = is_Var t andalso x = fst (dest_Var t)
+                    fun update_env env =
+                      (*unifying x=x ==> no new term substitution necessary*)
+                      if vars_eq then env
+                      (*insert new substitution x \<mapsto> t*)
+                      else Envir.vupdate ((x, Tx), t) env
+                  in
+                    if not vars_eq andalso occurs x t then
+                      (@{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
+                          Pretty.str "Failed to unify (occurs check) ",
+                          Util.pretty_unif ctxt (s, t)
+                        ]
+                        |> Pretty.string_of);
+                      raise Unification_Base.UNIF)
+                    else
+                      (unify_types ctxt (Tx, fastype_of t) env,
+                        Unification_Base.reflexive_term ctxt s)
+                      |>> update_env
+                      |> Seq.single
+                  end))
           end
       | (_, Var _) => unif binders ctxt (t, s) env |> Seq.map (apsnd Unification_Base.symmetric)
       | _ => raise Unification_Base.UNIF)

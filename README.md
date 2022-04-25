@@ -4,8 +4,10 @@ First-order and higher-order pattern E-unification and E-matching for Isabelle w
 
 ## Build
 
-You need to download the latest afp development version to `../afp-devel/` (or update the path in `ROOTS`)
-and use the Isabelle release version to build the sessions.
+Requirements:
+1. The Isabelle development version
+2. The AFP development version 
+3. This [Isabelle/ML logging framework](https://github.com/kappelmann/logger-isabelle)
 
 ## Open Tasks
 

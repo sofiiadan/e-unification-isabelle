@@ -120,7 +120,7 @@ fun thms_correct norm_terms norm_thm ctxt unif tp =
         (* val _ = @{print} (t1) *)
         (* val _ = @{print} (t2) *)
         val (lhs, rhs) = Thm.concl_of thm' |> Logic.dest_equals
-      in List.all Envir.aeconv [(t1, lhs), (t2, rhs)] end
+      in List.all Envir.aeconv [(t1, lhs), (t2, rhs)] andalso Thm.no_prems thm' end
   in List.all thm_correct (Seq.list_of env_thmq) end
 
 fun terms_unify ctxt unif tp =

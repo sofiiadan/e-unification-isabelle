@@ -1,9 +1,5 @@
 chapter "E-Unification"
 
-session Logging in "Logging" = "Pure" +
-  theories
-    Logging
-
 session E_Unification = "Pure" +
   sessions
     Logging

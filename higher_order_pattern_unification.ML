@@ -88,7 +88,8 @@ fun match_bind (tenv, binders, ixn, T, is, t) =
 (** higher-order pattern E-unification **)
 fun e_match match_types match_theory ctxt (pt as (p, t)) env =
   let
-    (*calls match_theory on failure*)
+    (*calls match_theory on failure;
+    generated theorem is already normalised wrt. the resulting environment*)
     fun match binders ctxt (p, t) (env as Envir.Envir {maxidx, tenv, tyenv}) =
       (case (p, t) of
         (Abs (np, Tp, tp), Abs (nt, Tt, tt)) =>
@@ -196,6 +197,7 @@ fun match_hints ctxt =
     val ctxt' = Config.put Unification_Hints.try_symmetric false ctxt
     val hints = Unification_Hints.gen_hint_list ctxt
     val norm_thm_match = Util.norm_thm Util.norm_type_match Util.norm_term_match
+    (*generated theorems are already in normal form ==> no normalisation needed*)
     val norm_thm_unif = K o K I
     fun matcher ctxt = e_match Util.match_types
       (Unification_Hints.try_hints norm_thm_match match norm_thm_unif matcher hints)
