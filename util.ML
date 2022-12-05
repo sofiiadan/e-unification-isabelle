@@ -47,7 +47,7 @@ sig
   type thm_normaliser = Proof.context -> Envir.env -> thm -> thm
   type thm_type_normaliser = thm_normaliser
 
-  (*normalise types of a given variable and abstract*)
+  (*normalise types of a given variable and abstract it*)
   val norm_abstract : term_type_normaliser -> Proof.context -> string -> term ->
     Envir.env -> thm -> thm
   val norm_abstract_env_thmq : term_type_normaliser -> Proof.context -> string ->
@@ -101,7 +101,7 @@ in
 
 fun pretty_types ctxt = Pretty.block o Pretty.commas o map (pretty_type ctxt)
 fun pretty_terms ctxt = Pretty.block o Pretty.commas o map (pretty_term ctxt)
-fun pretty_thm ctxt = Syntax.pretty_term ctxt o Thm.prop_of
+val pretty_thm = Thm.pretty_thm
 
 fun pretty_tyenv ctxt =
   let

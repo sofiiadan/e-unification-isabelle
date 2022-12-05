@@ -46,13 +46,13 @@ fun eval :: "Expr \<Rightarrow> int" where
 
 consts simpl :: "Expr \<Rightarrow> Expr"
 
-(* lemma soundness : "P (eval (simpl e)) \<Longrightarrow> P (eval e)" sorry *)
+(* lemma soundness : "eval (simpl e) = eval e" sorry *)
 
 (*supply base case and inductive hint*)
 lemma eval_Var [hints]: "e \<equiv> Var i \<Longrightarrow> eval e \<equiv> i" by simp
 
 lemma eval_add [hints]: "e \<equiv> Add e1 e2 \<Longrightarrow> m \<equiv> eval e1 \<Longrightarrow> n \<equiv> eval e2 \<Longrightarrow> eval e \<equiv> m + n"
-by simp
+  by simp
 
 ML_command\<open>
   val t1 = @{term_pat "eval ?e"}
@@ -75,12 +75,12 @@ fun eval_adv :: "AdvExpr \<times> real list \<Rightarrow> real" where
 
 (*hint to split expression and environment*)
 lemma eval_adv_split [hints]: "e \<equiv> (e1, \<Gamma>) \<Longrightarrow> n \<equiv> eval_adv (e1, \<Gamma>) \<Longrightarrow> eval_adv e \<equiv> n"
-by simp
+  by simp
 
 (*hints for environment lookup*)
 lemma eval_adv_Uar_Suc [hints]:
   "e \<equiv> Var (Suc p) \<Longrightarrow> \<Gamma> \<equiv> s # \<Delta> \<Longrightarrow> n \<equiv> eval_adv (Var p, \<Delta>) \<Longrightarrow> eval_adv (e, \<Gamma>) \<equiv> n"
-by simp
+  by simp
 
 lemma eval_adv_Var_zero [hints]: "e \<equiv> Var 0 \<Longrightarrow> \<Gamma> \<equiv> n # \<Theta> \<Longrightarrow> eval_adv (e, \<Gamma>) \<equiv> n" by simp
 
@@ -89,10 +89,10 @@ lemma eval_adv_Unit [hints]: "e \<equiv> Unit \<Longrightarrow> eval_adv (e, \<G
 
 lemma eval_adv_Mul [hints]:
   "e \<equiv> Mul e1 e2 \<Longrightarrow> m \<equiv> eval_adv (e1, \<Gamma>) \<Longrightarrow> n \<equiv> eval_adv (e2, \<Gamma>) \<Longrightarrow> eval_adv (e, \<Gamma>) \<equiv> m * n"
-by simp
+  by simp
 
 lemma eval_adv_Inv [hints]: "e1 \<equiv> Inv e2 \<Longrightarrow> n \<equiv> eval_adv (e2, \<Gamma>) \<Longrightarrow> eval_adv (e1, \<Gamma>) \<equiv> inverse n"
-by simp
+  by simp
 
 ML_command\<open>
   val t1 = @{term_pat "eval_adv ?e"};
