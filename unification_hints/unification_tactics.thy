@@ -51,11 +51,11 @@ ML\<open>
 
 
 (*
-- tactic takes integer n to specify a subproblem \<and> it takes a problem thm
-- extract subproblem n from passed thm 
-- extract the goal from the subproblem extracted
-- extract p,q if the goal form is P \<equiv> Q
-- call unifier on p,q \<Rightarrow> get the seq of (env, thm)
+- tactic takes integer n to specify a subproblem \<and> it takes a problem thm - +
+- extract subproblem n from passed thm - +
+- extract the goal from the subproblem extracted - +
+- extract p,q if the goal form is P \<equiv> Q - +
+- call unifier on p,q \<Rightarrow> get the seq of (env, thm) - +
 - update the goal (apply the new env to the initially passed problem)
 - remove subproblem n from updated problem ("solve it") with (env,thm)
 - return newly adjusted problem thm'
@@ -65,7 +65,31 @@ ML\<open>
 beware of TrueProp \<and> remove it
 *)
 
-ML\<open>\<close>
+ML\<open>
+(*?: where can I look up this how to get terms out of P \<equiv> Q*)
+fun get_terms thm = 
+  let 
+    val term = @{term "P \<equiv> Q"}
+  in
+    case Thm.full_prop_of thm of
+      term => undefined
+      | _ => undefined
+  end
+
+fun unif_tactic n thm =
+  let
+   val subproblem = thm (*?: should be subproblem n from thm*)
+  in
+    let
+      val goal = SOMEGOAL n subproblem (*?: how to get tactics, not thm \<rightarrow> thm Seq? Use PRIMITIVE or? *)
+      val unify_terms = undefined (*unification like unify_first_order*) 
+    in
+      Seq.map unify_terms goal
+    end
+  end
+\<close>
+
+
 ML\<open>\<close>
 ML\<open>\<close>
 end
