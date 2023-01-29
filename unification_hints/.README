@@ -1,0 +1,16 @@
+Current task: 
+ Implement unification tactics: 
+    - tactic takes integer n to specify a subproblem ∧ it takes a problem thm - done
+    - extract subproblem n from passed thm - have a question
+    - extract the goal from the subproblem extracted - done
+    - extract p,q if the goal form is P ≡ Q - have a question
+    - call unifier on p,q ⇒ get the seq of (env, thm) - partially done?
+    - update the goal (apply the new env to the initially passed problem)
+    - remove subproblem n from updated problem ("solve it") with (env,thm)
+    - return newly adjusted problem thm'
+    - 3 final steps are done for all env from seq of (env,thm) (use functions on seq for iteration)
+    
+Comments:    
+(Seq.map 3 steps seq of (env,thm) → seq thm)
+// a→b ... → goal
+beware of TrueProp ∧ remove it
