@@ -113,7 +113,7 @@ fun e_match match_types match_theory ctxt (p, t) env =
          val (p', t') = apply2 (Util.replace_binders binders) (p, t)
             |> apfst (Util.norm_term_match env)
           val _ = @{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
-              Pretty.str "Failed to (standard) match; calling theory matcher for ",
+              Pretty.str "First-order matching failed. Calling theory matcher for ",
               Util.pretty_unif ctxt (p', t')
             ]
             |> Pretty.string_of)
@@ -134,15 +134,16 @@ val match = e_match Util.match_types (K o K o K Seq.empty)
 (*first-order matching with hints*)
 fun match_hints ctxt =
   let
+    (*we do not flip the hints since they may indicate on which side of the
+      equation variables may be instantiated*)
     val ctxt' = Config.put Unification_Hints.try_symmetric false ctxt
     val hints = Unification_Hints.gen_hint_list ctxt
-    val norm_thm_match = Util.norm_thm Util.norm_type_match Util.norm_term_match
-    (*generated theorems are already in normal form ==> no normalisation needed*)
-    val norm_thm_unif = K o K I
+    (*match already normalises the types*)
+    val norm_thm_unif = Util.norm_thm_beta_eta (K I) Util.norm_term_match
     fun match ctxt =
       e_match Util.match_types
-        (Unification_Hints.try_hints norm_thm_match Higher_Order_Pattern_Unification.match
-        norm_thm_unif match hints)
+        (Unification_Hints.try_hints Higher_Order_Pattern_Unification.match
+          norm_thm_unif match hints)
         ctxt
   in match ctxt' end
 
@@ -234,7 +235,7 @@ fun e_unify unify_types unify_theory ctxt (s, t) env =
           val (s', t') =
             apply2 (Util.norm_term_unif env o Util.replace_binders binders) (s, t)
           val _ = @{log Logger.DEBUG} ctxt (fn _ => Pretty.block [
-              Pretty.str "Failed to (standard) unify; calling theory unifier for ",
+              Pretty.str "First-order unification failed. Calling theory unifier for ",
               Util.pretty_unif ctxt (s', t')
             ]
             |> Pretty.string_of)
@@ -256,14 +257,12 @@ val unify = e_unify Util.unify_types (K o K o K Seq.empty)
 fun unify_hints ctxt =
   let
     val hints = Unification_Hints.gen_hint_list ctxt
-    (*no normalisation after matching required since all results are normalised by norm_thm_unif*)
-    val norm_thm_match = K o K I
-    val norm_thm_unif = Util.norm_thm Util.norm_type_unif Util.norm_term_unif
-    fun unify ctxt =
-      e_unify Util.unify_types
-        (Unification_Hints.try_hints norm_thm_match Higher_Order_Pattern_Unification.match
+    val norm_thm_unif =
+      Util.norm_thm_beta_eta Util.norm_type_unif Util.norm_term_unif
+    fun unify ctxt = e_unify Util.unify_types
+      (Unification_Hints.try_hints Higher_Order_Pattern_Unification.match
         norm_thm_unif unify hints)
-        ctxt
+      ctxt
   in unify ctxt end
 
 

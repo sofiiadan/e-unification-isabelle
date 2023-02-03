@@ -110,15 +110,8 @@ fun thms_correct norm_terms norm_thm ctxt unif tp =
     val env_thmq = unif ctxt tp (UUtil.empty_envir tp)
     fun thm_correct (env, thm) =
       let
-        (* val _ = @{print} (thm) *)
-        (* val _ = @{print} (fst tp) *)
-        (* val _ = @{print} (snd tp) *)
         val (t1, t2) = norm_terms env tp
         val thm' = norm_thm ctxt env thm
-        (* val _ = (UUtil.pretty_env ctxt env |> Pretty.writeln) *)
-        (* val _ = @{print} (thm') *)
-        (* val _ = @{print} (t1) *)
-        (* val _ = @{print} (t2) *)
         val (lhs, rhs) = Thm.concl_of thm' |> Logic.dest_equals
       in List.all Envir.aeconv [(t1, lhs), (t2, rhs)] andalso Thm.no_prems thm' end
   in List.all thm_correct (Seq.list_of env_thmq) end
@@ -127,19 +120,19 @@ fun terms_unify ctxt unif tp =
   UUtil.empty_envir tp
   |> unif ctxt tp
   |> UUtil.seq_is_empty
-  |> not
-  handle Unification_Base.PATTERN => false
+  |> not o fst
 
 fun terms_unify_thms_correct norm_terms norm_thm ctxt unif tp =
   terms_unify ctxt unif tp andalso thms_correct norm_terms norm_thm ctxt unif tp
 
 val terms_unify_thms_correct_unif = terms_unify_thms_correct
   (apply2 o UUtil.norm_term_unif)
-  (UUtil.norm_thm UUtil.norm_type_unif UUtil.norm_term_unif)
+  (UUtil.norm_thm_beta_eta UUtil.norm_type_unif UUtil.norm_term_unif)
 
 val terms_unify_thms_correct_match = terms_unify_thms_correct
   (apfst o UUtil.norm_term_match)
-  (UUtil.norm_thm (K I) UUtil.norm_term_match)
+  (*types are already normalised by matcher*)
+  (UUtil.norm_thm_beta_eta (K I) UUtil.norm_term_match)
 
 fun check gen name prop ctxt =
   SpecCheck.check_shrink (show_termpair ctxt) shrink_termpair
@@ -151,19 +144,19 @@ fun check_thm norm_terms norm_thm gen name unif ctxt = check gen ("Theorem corre
 
 fun check_thm_unif norm_terms = check_thm
   (apply2 o UUtil.norm_term_unif)
-  (UUtil.norm_thm UUtil.norm_type_unif UUtil.norm_term_unif)
+  (UUtil.norm_thm_beta_eta UUtil.norm_type_unif UUtil.norm_term_unif)
   norm_terms
 
 fun check_thm_match norm_terms = check_thm
   (apfst o UUtil.norm_term_match)
-  (UUtil.norm_thm (K I) UUtil.norm_term_match)
+  (UUtil.norm_thm_beta_eta (K I) UUtil.norm_term_match)
   norm_terms
 
 fun check_list tests name prop ctxt =
   SpecCheck.check_list (show_termpair ctxt) tests name prop ctxt
 
 fun add_hints thms ctxt =
-  fold (Named_Theorems.add_thm @{named_theorems "hints"}) thms (Context.Proof ctxt)
+  fold (Unification_Hints.Hints.add_thm) thms (Context.Proof ctxt)
   |> Context.proof_of
 
 fun check_unit_tests_hints norm_terms norm_thm tests should_succeed hints name unif ctxt s =
@@ -178,12 +171,12 @@ fun check_unit_tests_hints norm_terms norm_thm tests should_succeed hints name u
 
 fun check_unit_tests_hints_unif norm_terms = check_unit_tests_hints
   (apply2 o UUtil.norm_term_unif)
-  (UUtil.norm_thm UUtil.norm_type_unif UUtil.norm_term_unif)
+  (UUtil.norm_thm_beta_eta UUtil.norm_type_unif UUtil.norm_term_unif)
   norm_terms
 
 fun check_unit_tests_hints_match norm_terms = check_unit_tests_hints
   (apfst o UUtil.norm_term_match)
-  (UUtil.norm_thm (K I) (K I))
+  (UUtil.norm_thm_beta_eta (K I) (K I))
   norm_terms
 
 
