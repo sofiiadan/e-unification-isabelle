@@ -44,7 +44,8 @@ ML_command\<open>
       ("\<lambda> (x :: nat) (y :: bool). (x, y)", "\<lambda> (x :: nat) (y :: bool). (x, y)"),
       ("\<lambda> (x :: ?'A) (y :: bool). (?x :: ?'A \<Rightarrow> bool \<Rightarrow> ?'Z) x y", "\<lambda> (x :: nat) (y :: bool). f x y"),
       ("\<lambda>(x :: ?'X). (g :: ?'X \<Rightarrow> ?'X) x", "(g :: ?'X \<Rightarrow> ?'X)"),
-      ("?g ?x ?y d", "g ?y ?x d")
+      ("?g ?x ?y d", "g ?y ?x d"),
+      ("f 0 True", "(\<lambda>x y. f y x) True 0")
     ]
     val check = check_unit_tests_hints_match tests true []
   in

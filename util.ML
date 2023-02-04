@@ -1,3 +1,9 @@
+(*  Title:      E_Unification/util.ML
+    Author:     Kevin Kappelmann
+
+Utilities used for e-unifications.
+*)
+
 signature UNIFICATION_UTIL =
 sig
 
@@ -15,7 +21,7 @@ sig
   (* sequences *)
   (*raises exception if sequence is empty and returns the sequence otherwise*)
   val seq_try : exn -> 'a Seq.seq -> 'a Seq.seq
-  val seq_is_empty : 'a Seq.seq -> bool
+  val seq_is_empty : 'a Seq.seq -> (bool * 'a Seq.seq)
 
   (* terms and environments *)
   val maxidx_of_terms : term list -> int
@@ -34,13 +40,18 @@ sig
   (*replaces all binders by their corresponding free variable in the given term*)
   val replace_binders : binder list -> term -> term
 
+  (* conversions *)
+  val thm_conv : conv -> thm -> thm
+
   (* normalisations *)
   type type_normaliser = Type.tyenv -> typ -> typ
   val norm_type_match : type_normaliser
   val norm_type_unif : type_normaliser
 
   type term_normaliser = Envir.env -> term -> term
+  (*with beta-normalisation*)
   val norm_term_match : term_normaliser
+  (*with beta-normalisation*)
   val norm_term_unif : term_normaliser
 
   type term_type_normaliser = Type.tyenv -> term -> term
@@ -55,6 +66,8 @@ sig
 
   val norm_thm_types : type_normaliser -> thm_normaliser
   val norm_thm : type_normaliser -> term_normaliser -> thm_normaliser
+  (*with beta-normalisation and eta-contraction*)
+  val norm_thm_beta_eta : type_normaliser -> term_normaliser -> thm_normaliser
 
   (* type unification *)
 
@@ -130,9 +143,12 @@ fun pretty_unif ctxt (t1, t2) =
 (* sequences *)
 fun seq_try exn sq = case Seq.pull sq of
     NONE => raise exn
-  | SOME (v, sq') => Seq.cons v sq'
+  | SOME v => Seq.make (fn () => SOME v)
 
-fun seq_is_empty sq = is_none (Seq.pull sq)
+fun seq_is_empty sq = case Seq.pull sq of
+    NONE => (true, Seq.empty)
+  | SOME v => (false, Seq.make (fn () => SOME v))
+
 
 (* terms and environments *)
 fun maxidx_of_terms ts = fold (Integer.max o maxidx_of_term) ts ~1
@@ -151,6 +167,9 @@ fun binder_free binders = snd o nth binders
 (*replace all Bounds by corresponding Frees*)
 fun replace_binders binders t = let val bvars = map snd binders
   in subst_bounds (bvars, t) end
+
+(* conversions *)
+val thm_conv = Conv.fconv_rule
 
 (* normalisations *)
 type type_normaliser = Type.tyenv -> typ -> typ
@@ -189,7 +208,7 @@ fun norm_term_match_same (Envir.Envir {tenv, tyenv, ...}) : term Same.operation 
   in norm end
 
 fun norm_term_match env = Same.commit (norm_term_match_same env)
-val norm_term_unif = Envir.norm_term
+fun norm_term_unif env = Envir.norm_term env
 
 
 (** theorems **)
@@ -224,7 +243,7 @@ fun collect_norm_terms norm_type norm_term ctxt (env as Envir.Envir {tyenv,...})
 (*normalise types of a theorem*)
 fun norm_thm_types norm_types ctxt (Envir.Envir {tyenv, ...}) thm =
   let
-    val prop = Thm.prop_of thm
+    val prop = Thm.full_prop_of thm
     val type_inst = collect_norm_types norm_types ctxt tyenv prop
     val inst = (type_inst, Vars.empty)
   in Thm.instantiate inst thm end
@@ -232,11 +251,16 @@ fun norm_thm_types norm_types ctxt (Envir.Envir {tyenv, ...}) thm =
 (*normalise a theorem*)
 fun norm_thm norm_types norm_terms ctxt (env as Envir.Envir {tyenv,...}) thm =
   let
-    val prop = Thm.prop_of thm
+    val prop = Thm.full_prop_of thm
     val type_inst = collect_norm_types norm_types ctxt tyenv prop
     val term_inst = collect_norm_terms norm_types norm_terms ctxt env prop
     val inst = (type_inst, term_inst)
   in Thm.instantiate inst thm end
+
+fun norm_thm_beta_eta norm_types norm_terms ctxt env =
+  norm_thm norm_types norm_terms ctxt env
+  #> thm_conv Drule.beta_eta_conversion
+
 
 (* type unification *)
 
@@ -286,9 +310,9 @@ fun bound_bound ctxt i j binders =
   if i = j then Seq.single (binder_free binders i |> Unification_Base.reflexive_term ctxt)
   else Seq.empty
 
-fun comb_comb norm_thm_types unif ctxt (f, x) (g, y) env =
+fun comb_comb norm_thm_types unify ctxt (f, x) (g, y) env =
   let
-    val unif' = unif ctxt
+    val unif' = unify ctxt
     val env_thmq = unif' (f, g) env
       |> Seq.maps (fn (env, thm_fg) => unif' (x, y) env |> Seq.map (apsnd (pair thm_fg)))
     fun combine (env, thmp) =
@@ -298,11 +322,11 @@ fun comb_comb norm_thm_types unif ctxt (f, x) (g, y) env =
       |> pair env
   in Seq.map combine env_thmq end
 
-fun args_args norm_thm_types unif ctxt env_thmhq ss ts =
+fun args_args norm_thm_types unify ctxt env_thmhq ss ts =
   (let
     val args = ss ~~ ts
     fun unif_arg tp = Seq.maps
-      (fn (env, thms) => unif ctxt tp env |> Seq.map (apsnd (fn thm => thm :: thms)))
+      (fn (env, thms) => unify ctxt tp env |> Seq.map (apsnd (fn thm => thm :: thms)))
     fun unif_args env = fold unif_arg args (Seq.single (env, []))
     (*combine the theorems*)
     fun combine thmh (env_res, arg_thms) =
@@ -314,7 +338,6 @@ fun args_args norm_thm_types unif ctxt env_thmhq ss ts =
   in Seq.maps (fn (env, thmh) => unif_args env |> Seq.map (combine thmh)) env_thmhq end)
   handle ListPair.UnequalLengths => Seq.empty
 
-
 (* logging *)
 
 fun log_unif_result ctxt _ (env, thm) =
@@ -323,12 +346,12 @@ fun log_unif_result ctxt _ (env, thm) =
   @{log} ctxt (K "Theorem:");
   @{log} ctxt (fn _ => pretty_thm ctxt thm |> Pretty.string_of))
 
-fun log_unif_results ctxt tp unif =
-  let val res = unif ctxt tp (empty_envir tp) |> Seq.list_of
+fun log_unif_results ctxt tp unify =
+  let val res = unify ctxt tp (empty_envir tp) |> Seq.list_of
   in fold (log_unif_result ctxt tp #> K) res () end
 
-fun log_unif_results' n ctxt tp unif =
-  let val res = unif ctxt tp (empty_envir tp) |> Seq.take n |> Seq.list_of
+fun log_unif_results' n ctxt tp unify =
+  let val res = unify ctxt tp (empty_envir tp) |> Seq.take n |> Seq.list_of
   in fold (log_unif_result ctxt tp #> K) res () end
 
 end
