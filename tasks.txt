@@ -1,0 +1,7 @@
+1. Clean the function (indentations, remove old functions, etc.) - +-, add exceptions
+2. Change it such that it takes a unifier as a parameter (types in Unification_Base.unifier) - +
+3. Store a unifier as a context data:
+    a. Read Implentation Manual 1.1.4 Context data
+    b. Then implement context data that stores a unifier
+    c. Test it: add a unifier, retrieve it, update it, etc.
+4. Create a function that first retrieves the unifier from the context and then passes it to the unification tactic as a parameter
