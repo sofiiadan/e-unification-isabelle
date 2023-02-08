@@ -227,20 +227,33 @@ fun string_of_term ctxt env binders t =
 fun bname binders = fst o fst o nth binders
 fun bnames binders is = map (bname binders) is |> space_implode " "
 
-fun proj_fail ctxt (env, binders, F, _, is, t) =
+fun proj_fail ctxt (env, binders, F, _, is, t) reason =
   @{log Logger.DEBUG} ctxt (fn _ =>
     let
       val f = Term.string_of_vname F
       val xs = bnames binders is
       val u = string_of_term ctxt env binders t
-      val ys = bnames binders (subtract (op =) is (loose_bnos t))
     in
       cat_lines [
         "Cannot unify variable " ^ f ^ " (depending on bound variables " ^ xs ^ ")",
         "with term " ^ u,
-        "Term contains additional bound variable(s) " ^ ys
+        reason ()
       ]
     end)
+
+fun proj_fail_unif ctxt (params as (_, binders, _, _, is, t)) =
+  let
+    fun reason () =
+      let val ys = bnames binders (subtract (op =) is (loose_bnos t))
+      in "Term contains additional bound variable(s) " ^ ys end
+  in proj_fail ctxt params reason end
+
+fun proj_fail_type_app ctxt (params as (env, binders, _, _, _, _)) var_app =
+  let
+    fun reason () =
+      let val var_app = string_of_term ctxt env binders var_app
+      in "Projection " ^ var_app ^ " is not well-typed." end
+  in proj_fail ctxt params reason end
 
 fun ocheck_fail ctxt (F, t, binders, env) =
   @{log Logger.DEBUG} ctxt (fn _ => cat_lines [
@@ -384,16 +397,21 @@ fun flexflex2 unify_types ctxt (env, binders, F, Fty, is, G, Gty, js) =
 fun flexrigid unify_types ctxt (params as (env, binders, F, Fty, is, t)) =
   if occurs (F, t, env) then (ocheck_fail ctxt (F, t, binders, env); raise Unification_Base.UNIF)
   else
-    ((let
+    let
       val var_app = app_free env binders F Fty is
       val binder_types = map (snd o fst) binders
-      val env' = unify_types ctxt
-        (fastype_of1 (binder_types, var_app), Envir.fastype env binder_types t) env
-      val (u, env'') = proj ctxt (t, env', binders, is)
-      val env''' = Envir.update ((F, Fty), mkabs (binders, is, u)) env''
-      val thm = Unification_Base.reflexive_term ctxt var_app
-    in (env''', thm) end)
-    handle (exn as Unification_Base.UNIF) => (proj_fail ctxt params; raise exn))
+    in
+      let
+        val env' = unify_types ctxt
+          (type_of1 (binder_types, var_app), Envir.fastype env binder_types t) env
+        val (u, env'') = proj ctxt (t, env', binders, is)
+        val env''' = Envir.update ((F, Fty), mkabs (binders, is, u)) env''
+        val thm = Unification_Base.reflexive_term ctxt var_app
+      in (env''', thm) end
+      handle
+        (exn as Unification_Base.UNIF) => (proj_fail_unif ctxt params; raise exn)
+      | TYPE _ => (proj_fail_type_app ctxt params var_app; raise Unification_Base.UNIF)
+    end
 
 (** higher-order pattern E-unification **)
 fun e_unify unify_types unify_theory ctxt (tp as (s, t)) env =
