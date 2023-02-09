@@ -109,10 +109,10 @@ fun try_hint try_symmetric match norm_thm_unif unify ctxt (t1, t2)
         fun inst_discharge ((env_res, prem_thms), (concl_thmp, flipped)) =
           let
             (*instantiate the theorems*)
-            val norm_thm_unif' = norm_thm_unif ctxt env_res
-            val hint_thm_inst = norm_thm_unif' hint_thm
-            val prem_thms_inst = map norm_thm_unif' prem_thms |> rev
-            val (concl_thmL, concl_thmR) = apply2 norm_thm_unif' concl_thmp
+            val norm_thm_unif = norm_thm_unif ctxt env_res
+            val hint_thm_inst = norm_thm_unif hint_thm
+            val prem_thms_inst = map norm_thm_unif prem_thms |> rev
+            val (concl_thmL, concl_thmR) = apply2 norm_thm_unif concl_thmp
             (*discharge the hint premises; flip the theorem if needed*)
             val thm_res = Drule.implies_elim_list hint_thm_inst prem_thms_inst
               |> (fn thm => Unification_Base.transitive thm concl_thmR)

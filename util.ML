@@ -28,6 +28,9 @@ sig
   (*returns empty environment with maxidx set to maximum of given terms*)
   val empty_envir : term * term -> Envir.env
 
+  val fresh_vars : string -> typ list -> int -> term list * int
+  val fresh_var : string -> typ -> int -> term * int
+
   (* binders *)
   (*During unification, when going underneath an abstraction, we store a binder as
   ((name, typ), fresh Free variable), where the fresh free variable is used as a replacement for the
@@ -154,6 +157,13 @@ fun seq_is_empty sq = case Seq.pull sq of
 fun maxidx_of_terms ts = fold (Integer.max o maxidx_of_term) ts ~1
 
 fun empty_envir (t1, t2) = Envir.empty (maxidx_of_terms [t1, t2])
+
+fun fresh_vars name Ts idx =
+  let fun mk_var_inc T i = (Var ((name, i + 1), T), (i + 1))
+  in fold_map mk_var_inc Ts idx end
+
+fun fresh_var name = yield_singleton (fresh_vars name)
+
 
 (* binders *)
 type binder = (string * typ) * term
