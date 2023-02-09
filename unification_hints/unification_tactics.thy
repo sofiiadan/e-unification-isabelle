@@ -37,11 +37,47 @@ ML\<open>
 \<close>
 
 ML\<open>
+  signature UNIFIER_CONTEXT=
+  sig
+    val get: Context.generic ->  Unification_Base.unifier
+    val add: Unification_Base.unifier -> Context.generic -> Context.generic
+    val update: (Unification_Base.unifier -> Unification_Base.unifier) -> Context.generic -> Context.generic
+  end;
+\<close>
+
+ML \<open>
+  fun update_unif unifier = unifier (*?: use merge to choose a correct unifier*)
+  
+  structure Unifier_Context: UNIFIER_CONTEXT =
+    struct
+      structure Unifier = Generic_Data
+      (
+        type T = Unification_Base.unifier
+        val empty = First_Order_Unification.unify
+        val merge = undefined (*case (u1,u2) of
+          (Higher_Order_Pattern_Unification, _) \<Rightarrow> u1
+          | (_,Higher_Order_Pattern_Unification) \<Rightarrow> u2
+          | _ \<Rightarrow> u1*)
+        (*? : merge should return a more general unifier out of 2*)
+      )
+    
+      val get = Unifier.get
+      fun add unifier = Unifier.put unifier
+      fun update unifier = Unifier.map (update_unif unifier) 
+    end;
+\<close>
+
+ML\<open>
   structure L = Logic
 
   val dummy = Term.dummyT
 
   val first_order_unifier = First_Order_Unification.unify
+
+  (*Kevin: similarly, there is dest_Trueprop to destruct a Trueprop*)
+  val p = HOLogic.dest_Trueprop @{prop "\<forall>x. x = x"}
+
+  fun all_tac thm = Seq.single thm
 
   fun unif_tac unifier ctxt  =
     let
@@ -50,9 +86,12 @@ ML\<open>
         let
           (*3. extract the goal from the subproblem extracted*)
           (*take care of trueprop \<and> exception*)
-          val concl = Logic.strip_imp_concl t (*implementation.pdf page 101?*)
+          (* val no_trueprop_t = HOLogic.dest_Trueprop t*)
+          val concl = Logic.strip_imp_concl t
           (*4: extract p,q if the goal form is P \<equiv> Q *)
-          val (p,q) = Logic.dest_equals  concl
+          val (p,q) = case concl of
+            (Const ("Pure.eq", _) $ _ $ _) => Logic.dest_equals  concl
+            | _ => raise TERM("concl",[concl]) (*TODO: handle it somewhere here \<or> at the end of function to fail tactic with all_tac?*)
           val _ = @{log} ctxt (fn _ =>
             Pretty.block [
               Pretty.str ("Calling unification tactic on subgoal " ^ Int.toString i ^ ": "),
@@ -75,8 +114,19 @@ ML\<open>
               end 
       (* 3 final steps are done for all env from seq of (env,thm)*)
       in Seq.map update_thm unif_sq |> Seq.flat end (*change that*)
-    (*1-2. SUBGOAL extracts ith subgoal*)
+    (*1-2. SUBGOAL extracts ith subgoal*) 
     in SUBGOAL unif_subgoal end
+
+  (*Function that first retrieves the unifier from the context and 
+  then passes it to the unification tactic as a parameter*)
+  fun call_tac_with_unif ctxt =  unif_tac Unifier_Context.get ctxt
+\<close>
+
+ML\<open>
+  (*Some tests for unification context*)
+  fun get_unif ctxt = Unifier_Context.get
+  fun add_unif unif = Unifier_Context.add
+  (*add test for update*)
 \<close>
 
 declare [[show_types = true]]
@@ -84,20 +134,24 @@ declare [[show_types = true]]
 config [First_Order_Unification.Logger.log_level = Logger.DEBUG]
 
 (*Here you can debug your code*)
-schematic_goal example: "(f :: ?'c \<Rightarrow> 'b) x \<equiv> (?Y :: 'a \<Rightarrow>'b) ?Z"
+schematic_goal example: "(f :: 'c \<Rightarrow> 'b) x \<equiv> (?Y :: 'c \<Rightarrow>'b) ?Z"
   apply (tactic \<open>unif_tac first_order_unifier @{context} 1\<close>)
 done
 
 (*
-1. Clean the function (indentations, remove old functions, etc.) - +-, add exceptions
+1. Clean the function (indentations, remove old functions, etc.) - +-
+? : how to handle properly raised exception on equality?
+error with trueprop - where does it need to be applied? After retrieving goal to concl from implication before matching it to 
+equality pattern 
 2. Change it such that it takes a unifier as a parameter (types in Unification_Base.unifier) - +
 3. Store a unifier as a context data:
-    a. Read Implentation Manual 1.1.4 Context data
-    b. Then implement context data that stores a unifier
-    c. Test it: add a unifier, retrieve it, update it, etc.
-4. Create a function that first retrieves the unifier from the context and then passes it to the unification tactic as a parameter
+    a. Read Implentation Manual 1.1.4 Context data - +
+    b. Then implement context data that stores a unifier - +-
+    c. Test it: add a unifier, retrieve it, update it, etc. - +-
+4. Create a function that first retrieves the unifier from the context and then passes it to the unification tactic as a parameter - +
+?: should a unifier be stored Proof.context instead of Generic.context?
 *)
 
-ML\<open>\<close>
+ML\<open>Context.get_generic_context\<close>
 ML\<open>\<close>
 end
