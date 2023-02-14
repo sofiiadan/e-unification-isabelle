@@ -1,7 +1,23 @@
-1. Clean the function (indentations, remove old functions, etc.) - +-, add exceptions
+1. Clean the function (indentations, remove old functions, etc.) - +
 2. Change it such that it takes a unifier as a parameter (types in Unification_Base.unifier) - +
 3. Store a unifier as a context data:
-    a. Read Implentation Manual 1.1.4 Context data
-    b. Then implement context data that stores a unifier
-    c. Test it: add a unifier, retrieve it, update it, etc.
-4. Create a function that first retrieves the unifier from the context and then passes it to the unification tactic as a parameter
+    a. Read Implentation Manual 1.1.4 Context data - +
+    b. Then implement context data that stores a unifier - +
+    c. Test it: add a unifier, retrieve it, update it, etc. - +
+4. Create a function that first retrieves the unifier from the context and then passes it to the unification tactic as a parameter - +
+
+1. Assume we have a goal of form "A1→A2→...→B"
+2. Assume we have a rule of form "A1'→A2'→...→B'"
+3. Check if "B ≡ B'" can be unified
+4. If they can - apply unifier to goal ∧ rule
+5. We get new subgoals: 
+  5.a. prove A1',..,An', for each we can assume A1,..An
+  5.b. read up resolution (Chapter 2.4.2) - +
+  a. take 2 literals, remove, add everything together (resolution)
+
+1. research which resolution method rule_tac is calling + notes - +-
+2. also have a look at intro, elim, OF, subst (call to theorem module?)
+(maybe make a scheme) - +-
+3. have a look at unif_resolve - +-
+
+More questions in the comments.
