@@ -15,9 +15,16 @@
   5.b. read up resolution (Chapter 2.4.2) - +
   a. take 2 literals, remove, add everything together (resolution)
 
-1. research which resolution method rule_tac is calling + notes - +-
-2. also have a look at intro, elim, OF, subst (call to theorem module?)
-(maybe make a scheme) - +-
+1. research which resolution method rule_tac is calling + notes - +
+2. also have a look at 
+	intro
+ 	elim
+	OF 
+	subst (call to theorem module?)
+(maybe make a scheme) - +
 3. have a look at unif_resolve - +-
+
+
+Notes on resolution and methods: https://www.notion.so/Resolution-methods-notes-ae6f6d0c9af648f3bfce35e9afecbab6	
 
 More questions in the comments.
