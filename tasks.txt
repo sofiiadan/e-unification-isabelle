@@ -24,6 +24,19 @@
 (maybe make a scheme) - +
 3. have a look at unif_resolve - +-
 
+1) read paper mentioned above (section 1): https://home.in.tum.de/~wimmers/papers/Smashing_Isabelle.pdf - +
+2) create higher_order_unification.ML:
+  2.1) new file - higher_order_unification.ML - +
+  2.2) create function of type unifier - unify - + 
+       (+ another function hounify)
+  2.3) call unifier from \Pure\unify.ML in unify - +
+  2.4) call hounifier from \Pure\unify.ML in hounify - +
+  2.5) unifier returns (env*(term*term) list) Seq.seq - +-
+  ⇒ we need to create a thm applying env to term*term list that terms are equal
+(?: questions - code comments higher_order_unification.ML)
+3) check if it works (tests?) - -
+(?: questions - usual structure of the tests)
+4) inspect unif_resolve - +
 
 Notes on resolution and methods: https://www.notion.so/Resolution-methods-notes-ae6f6d0c9af648f3bfce35e9afecbab6	
 
