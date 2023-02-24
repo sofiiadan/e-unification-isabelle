@@ -7,14 +7,7 @@ begin
 
 ML\<open>
   (*reference to functions needed for testing etc*)
-  val x = ()
-
   structure L = Logic
-
-  val dummy = Term.dummyT
-
-  (*dest_Trueprop to destruct a Trueprop*)
-  val p = HOLogic.dest_Trueprop @{prop "\<forall>x. x = x"}
 
   structure Util = Unification_Util
   structure Logger = @{new_logger "unification_tactics"}
@@ -76,7 +69,6 @@ ML\<open>
         let
           (*3. extract the goal from the subproblem extracted*)
           (*take care of trueprop \<and> exception*)
-          (* val no_trueprop_t = HOLogic.dest_Trueprop t*)
           val concl = Logic.strip_imp_concl t
           (*4: extract p,q if the goal form is P \<equiv> Q *)
           val (p,q) = Logic.dest_equals  concl
@@ -131,18 +123,6 @@ ML\<open>
   in
     unif_tac unifier ctxt
   end 
-
-  (*Draft: function to resolve A1\<rightarrow>..\<rightarrow>An\<rightarrow>B using rule A1'\<rightarrow>..\<rightarrow>B' *)
-  fun resolve_tac unifier ctxt goal rule = 
-    let
-      val get_goal  = Logic.strip_imp_concl 
-      val goal_rule = get_goal rule
-      val goal_goal = get_goal goal
-      (*?: check if B\<equiv>B'*)
-      val env = Util.empty_envir (goal_rule, goal_goal)
-    in
-      unifier ctxt (goal_rule,goal_goal) env
-    end
 \<close>
 
 declare [[show_types = true]]
@@ -156,30 +136,6 @@ schematic_goal example: "(f :: 'c \<Rightarrow> 'b) x \<equiv> (?Y :: 'c \<Right
   done
 
 thm TrueI [OF ]
-
-(*
-1. Clean the function (indentations, remove old functions, etc.) - +
-2. Change it such that it takes a unifier as a parameter (types in Unification_Base.unifier) - +
-3. Store a unifier as a context data:
-    a. Read Implentation Manual 1.1.4 Context data - +
-    b. Then implement context data that stores a unifier - +
-    c. Test it: add a unifier, retrieve it, update it, etc. - +
-4. Create a function that first retrieves the unifier from the context and then passes it to the unification tactic as a parameter - +
-
-1. Assume we have a goal of form "A1\<rightarrow>A2\<rightarrow>...\<rightarrow>B"
-2. Assume we have a rule of form "A1'\<rightarrow>A2'\<rightarrow>...\<rightarrow>B'"
-3. Check if "B \<equiv> B'" can be unified
-4. If they can - apply unifier to goal \<and> rule
-5. We get new subgoals: 
-  5.a. prove A1',..,An', for each we can assume A1,..An
-  5.b. read up resolution (Chapter 2.4.2) - +
-  a. take 2 literals, remove, add everything together (resolution)
-
-1. research which resolution method rule_tac is calling + notes - +-
-2. also have a look at intro, elim, OF, subst (call to theorem module?)
-(maybe make a scheme) - +-
-3. have a look at unif_resolve - +-
-*)
 
 ML\<open>\<close>
 end
