@@ -18,4 +18,5 @@ session E_Unification_Tests in "Tests" = "HOL" +
   theories
     First_Order_Unification_Tests
     Higher_Order_Pattern_Unification_Tests
+    Higher_Order_Unification_Tests
     Unification_Hints_Examples
