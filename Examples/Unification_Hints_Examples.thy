@@ -15,6 +15,11 @@ ML\<open>
     (Args.term_pattern >> (ML_Syntax.atomic o ML_Syntax.print_term)))
 \<close>
 
+ML\<open>
+  structure Util = Unification_Util
+  val unify = Higher_Order_Pattern_Unification.unify_hints
+\<close>
+
 (* ML\<open>
   (*Pattern unifier does not unify types correctly*)
   val (t, s) = (
@@ -29,11 +34,6 @@ ML\<open>
     |> Unification_Util.pretty_env @{context}
     |> Pretty.writeln
 \<close> *)
-
-ML\<open>
-  structure Util = Unification_Util
-  val unify = Higher_Order_Pattern_Unification.unify_hints
-\<close>
 
 subsection \<open>Reflexive Tactics\<close>
 
