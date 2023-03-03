@@ -38,6 +38,15 @@
 (?: questions - usual structure of the tests)
 4) inspect unif_resolve - +
 
+1)one way to transform flexflex pairs: 
+    1.1)smash them - +
+    1.2)apply new env to input terms - + 
+    1.3)get thm - +
+  2) fix return types - +
+  3) example testing - +? (we can as well use the tests for higher_order_unification)
+  4) check out Thm module for flexflex pairs - +- 
+  5) create a latex file ∧ write what unif_resolve does - +- 
+
 Notes on resolution and methods: https://www.notion.so/Resolution-methods-notes-ae6f6d0c9af648f3bfce35e9afecbab6	
 
 More questions in the comments.

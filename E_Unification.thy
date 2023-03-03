@@ -19,6 +19,7 @@ ML_file\<open>unification_hints.ML\<close>
 
 text \<open>Unifiers\<close>
 ML_file\<open>higher_order_unification.ML\<close>
+ML_file\<open>higher_order_unification_draft.ML\<close>
 ML_file\<open>higher_order_pattern_unification.ML\<close>
 ML_file\<open>first_order_unification.ML\<close>
 
