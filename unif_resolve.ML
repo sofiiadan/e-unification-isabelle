@@ -34,9 +34,9 @@ structure Util = Unification_Util
 fun CONCAT tacs = fold_rev (curry op APPEND) tacs no_tac
 fun CONCAT' tacs = fold_rev (curry op APPEND') tacs (K no_tac)
 
-fun no_lift_biresolve_tac ctxt eres rule =
+fun no_lift_biresolve_tac ctxt eres brule =
   Thm.bicompose (SOME ctxt) {flatten = true, match = true, incremented = true}
-  (eres, rule, Thm.nprems_of rule)
+  (eres, brule, Thm.nprems_of brule)
 
 fun no_lift_resolve_tac ctxt = no_lift_biresolve_tac ctxt false
 
@@ -63,7 +63,7 @@ fun unify_resolve_csubgoal_tac norm_thm unify ctxt rule (cgoal, i) state =
     val rule_concl = Thm.concl_of rule
     val goal_concl = Logic.strip_assums_concl goal_focused
     val conclp = (rule_concl, goal_concl)
-    val env_thmsq = unify ctxt' conclp (Util.empty_envir conclp)
+    val env_thmq = unify ctxt' conclp (Util.empty_envir conclp)
     fun update_goal (env, unif_thm) =
       let
         (*normalise all components wrt. env*)
@@ -157,7 +157,7 @@ fun unify_resolve_csubgoal_tac norm_thm unify ctxt rule (cgoal, i) state =
         val updated_statesq =
           Seq.maps (fn rule => no_lift_resolve_tac ctxt rule i inst_state) rulesq
       in updated_statesq end
-  in Seq.maps update_goal env_thmsq end
+  in Seq.maps update_goal env_thmq end
 
 fun unify_resolve_tac norm_thm unify ctxt =
   CSUBGOAL o unify_resolve_csubgoal_tac norm_thm unify ctxt

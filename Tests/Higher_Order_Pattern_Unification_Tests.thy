@@ -11,10 +11,11 @@ text \<open>Tests for @{ML_structure "Higher_Order_Pattern_Unification"}.\<close
 ML\<open>
   structure Prop = SpecCheck_Property
   open Unification_Tests_Base
-  val match_hints = Higher_Order_Pattern_Unification.match_hints
-  val match = Higher_Order_Pattern_Unification.match
-  val unify_hints = Higher_Order_Pattern_Unification.unify_hints
-  val unify = Higher_Order_Pattern_Unification.unify
+  structure Unif = Higher_Order_Pattern_Unification
+  val match_hints = Unif.match_hints
+  val match = Unif.match
+  val unify_hints = Unif.unify_hints
+  val unify = Unif.unify
 \<close>
 
 (* config[First_Order_Unification.Logger.log_level=1000]
@@ -97,10 +98,12 @@ ML_command\<open>
 subsection \<open>Unification\<close>
 subsubsection \<open>Generated Tests\<close>
 
+paragraph \<open>First Order\<close>
+
 ML_command\<open>
   structure Test_Params =
   struct
-    open Higher_Order_Pattern_Unification
+    open Unif
     val params = {
       nv = 10,
       ni = 10,
@@ -112,34 +115,26 @@ ML_command\<open>
   val _ = First_Order_Tests.tests @{context} (SpecCheck_Random.new ())
 \<close>
 
-subsubsection \<open>Unit Tests\<close>
+paragraph \<open>Higher Order\<close>
 
-paragraph \<open>Standard Unification\<close>
+ML_file\<open>higher_order_pattern_unification_tests.ML\<close>
+
 ML_command\<open>
-  let
-    val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
-    val tests = map (apply2 (Syntax.read_term ctxt)) [
-      ("\<lambda> x. f x", "\<lambda> x. f x"),
-      ("\<lambda> (x :: ?'X). (f :: ?'X \<Rightarrow> ?'Y) x", "\<lambda> (x :: ?'X1). (?y :: ?'X1 \<Rightarrow> ?'Y1) x"),
-      ("\<lambda> x. r x ?X", "\<lambda> x. r x ?Y"),
-      ("\<lambda> x. (x, (\<lambda> y. (y, \<lambda> z. ?x)))", "\<lambda> x. (x, (\<lambda> y. (y, \<lambda> z. g)))"),
-      ("?f :: ?'Z \<Rightarrow> ?'X \<Rightarrow> ?'Y \<Rightarrow> ?'R", "\<lambda> (x :: ?'Z). (?f :: ?'Z \<Rightarrow> ?'X1 \<Rightarrow> ?'Y1 \<Rightarrow> ?'R1) x"),
-      (
-        "(?x :: ?'X, ?y :: ?'Y, ?z :: ?'Z)",
-        "((f :: ?'Y \<Rightarrow> ?'X) (?y :: ?'Y), (g :: ?'Z \<Rightarrow> ?'Y) (?z :: ?'Z), c :: ?'C)"
-      )
-   ]
-    val check_hints = check_unit_tests_hints_unif tests
-  in
-    Lecker.test_group ctxt () [
+  structure Tests = Higher_Order_Pattern_Unification_Tests(Unif)
+  val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}
+  val tests = Tests.unit_tests_unifiable ctxt
+  val check_hints = check_unit_tests_hints_unif tests
+  val _ = Lecker.test_group ctxt () [
       check_hints true [] "unify" unify,
       check_hints true [] "unify_hints without hints" unify_hints,
       check_hints true [] "unify_hints with hints" unify_hints
     ]
-  end
 \<close>
 
+subsubsection \<open>Unit Tests\<close>
+
 paragraph \<open>With Unification Hints\<close>
+
 ML_command\<open>
   let
     val ctxt = Proof_Context.set_mode Proof_Context.mode_schematic @{context}

@@ -11,19 +11,12 @@ text \<open>Tests for @{ML_structure "First_Order_Unification"}.\<close>
 ML\<open>
   structure Prop = SpecCheck_Property
   open Unification_Tests_Base
-  val match_hints = First_Order_Unification.match_hints
-  val match = First_Order_Unification.match
-  val unify_hints = First_Order_Unification.unify_hints
-  val unify = First_Order_Unification.unify
+  structure Unif = First_Order_Unification
+  val match_hints = Unif.match_hints
+  val match = Unif.match
+  val unify_hints = Unif.unify_hints
+  val unify = Unif.unify
 \<close>
-
-(* config[First_Order_Unification.Logger.log_level=1000]
-config[Higher_Order_Pattern_Unification.Logger.log_level=1000]
-config[Unification_Hints.Logger.log_level=1000]
-config[Root_Logger.log_level=1000]
-config[show_types=true]
-config[eta_contract=false]
-config[Logging_Antiquotations.show_pos=false] *)
 
 subsection \<open>Matching\<close>
 subsubsection \<open>Unit Tests\<close>
@@ -101,7 +94,7 @@ subsubsection \<open>Generated Tests\<close>
 ML_command\<open>
   structure Test_Params =
   struct
-    open First_Order_Unification
+    open Unif
     val params = {
       nv = 4,
       ni = 2,
