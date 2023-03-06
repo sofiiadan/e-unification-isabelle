@@ -28,7 +28,7 @@ structure Util = Unification_Util
     1.3)get thm - +
   2) fix return types - +
   3) example testing - +? (we can as well use the tests for higher_order_unification)
-  4) check out Thm module for flexflex pairs - +- 
+  4) check out Thm module for flexflex pairs - + 
   5) create a latex file \<and> write what unif_resolve does - +- 
 *)
 (*use env, apply it to t1,t2 \<and> resolve t1,t2 with "?x = ?x" - implemented  \<rightarrow> higher_order_unification.ML*)
