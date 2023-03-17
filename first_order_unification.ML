@@ -5,7 +5,7 @@ First-order E-unification.
 *)
 signature FIRST_ORDER_UNIFICATION =
 sig
-  structure Logger : LOGGER
+  include HAS_LOGGER
 
   val e_match : Unification_Base.type_matcher -> Unification_Base.matcher ->
     Unification_Base.matcher
@@ -22,10 +22,9 @@ end
 structure First_Order_Unification : FIRST_ORDER_UNIFICATION =
 struct
 
+val logger = Logger.setup_new_logger Unification_Base.logger "First_Order_Unification"
+
 (* shared utils *)
-
-structure Logger = @{new_logger "first_order_unification"}
-
 structure Util = Unification_Util
 
 (*check if sequence is empty or raise UNIF exception*)

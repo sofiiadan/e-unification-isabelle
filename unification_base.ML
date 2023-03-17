@@ -6,6 +6,8 @@ Basic definitions for unifiers.
 
 signature UNIFICATION_BASE =
 sig
+  include HAS_LOGGER
+
   val reflexive : cterm -> thm
   val combination : thm -> thm -> thm
   val symmetric : thm -> thm
@@ -26,6 +28,8 @@ end
 
 structure Unification_Base : UNIFICATION_BASE =
 struct
+
+val logger = Logger.setup_new_logger Logger.root_logger "Unif"
 
 val reflexive = Thm.reflexive
 val combination = Thm.combination

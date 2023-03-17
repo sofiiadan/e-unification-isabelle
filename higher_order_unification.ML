@@ -6,14 +6,15 @@ Unification_Base.unifier type, i.e. moving flex-flex pairs into the theorem.
 *)
 signature HIGHER_ORDER_UNIFICATION =
 sig
-  structure Logger : LOGGER
+  include HAS_LOGGER
+
   val unify : Unification_Base.unifier
 end
 
 structure Higher_Order_Unification : HIGHER_ORDER_UNIFICATION =
 struct
 
-structure Logger = @{new_logger "higher_order_unification"}
+val logger = Logger.setup_new_logger Unification_Base.logger "Higher_Order_Unification"
 
 structure Util = Unification_Util
 
@@ -39,7 +40,6 @@ fun unify ctxt tp env =
         Unify.hounifiers (Context.Proof ctxt, env, [tp])
         (*add the flex-flex pairs to the theorem to fit the unifier signature*)
         |> Seq.maps (create_env_thmq o fst)
-        |> tap (@{print} o Seq.list_of)
       end
       handle Unification_Base.UNIF =>
         let
