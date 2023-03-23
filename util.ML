@@ -6,6 +6,7 @@ Utilities used for e-unifications.
 
 signature UNIFICATION_UTIL =
 sig
+  include HAS_LOGGER
 
   (* pretty-printing *)
   val pretty_types : Proof.context -> typ list -> Pretty.T
@@ -97,6 +98,8 @@ end
 
 structure Unification_Util : UNIFICATION_UTIL =
 struct
+
+val logger = Logger.setup_new_logger Unification_Base.logger "Util"
 
 (* pretty-printing *)
 local

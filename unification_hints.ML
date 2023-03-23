@@ -6,7 +6,8 @@ Unification hints as introduced in "Hints in unification" by Asperti et al, 2009
 
 signature UNIFICATION_HINTS =
 sig
-  structure Logger : LOGGER
+  include HAS_LOGGER
+
   val try_symmetric: bool Config.T
   structure Hints : NAMED_THMS
 
@@ -19,7 +20,8 @@ end
 structure Unification_Hints : UNIFICATION_HINTS =
 struct
 
-structure Logger = @{new_logger "unification_hints"}
+val logger = Logger.setup_new_logger Unification_Base.logger "Unification_Hints"
+
 structure Util = Unification_Util
 
 structure Hints = Named_Thms(
@@ -34,13 +36,13 @@ val try_symmetric = Attrib.setup_config_bool @{binding "unification_hints_try_sy
 
 fun pretty_hint ctxt (_, prems, thm) =
   let
-    fun pretty_prems ctxt prems =
+    val pretty_prems =
       map (apply2 (Syntax.pretty_term ctxt) o apfst Var) prems
       |> map (fn (s1, s2) => Pretty.block [s1, Pretty.str " \<equiv> ", s2])
       |> Pretty.list "\<lbrakk>" "\<rbrakk>"
   in
     Pretty.block [
-      pretty_prems ctxt prems,
+      pretty_prems,
       Pretty.str " \<Longrightarrow> ",
       Syntax.pretty_term ctxt (Thm.concl_of thm)
     ]

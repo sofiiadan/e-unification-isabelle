@@ -12,7 +12,7 @@ TODO: optimize red by special-casing it
 *)
 signature HIGHER_ORDER_PATTERN_UNIFICATION =
 sig
-  structure Logger : LOGGER
+  include HAS_LOGGER
 
   val e_match : Unification_Base.type_unifier -> Unification_Base.matcher ->
     Unification_Base.unifier
@@ -29,10 +29,9 @@ end
 structure Higher_Order_Pattern_Unification : HIGHER_ORDER_PATTERN_UNIFICATION =
 struct
 
+val logger = Logger.setup_new_logger Unification_Base.logger "Higher_Order_Pattern_Unification"
+
 (* shared utils *)
-
-structure Logger = @{new_logger "higher_order_pattern_unification"}
-
 structure Util = Unification_Util
 
 fun seq_try sq = Util.seq_try Unification_Base.UNIF sq

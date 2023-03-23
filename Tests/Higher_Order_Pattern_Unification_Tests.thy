@@ -2,8 +2,9 @@
 \<^marker>\<open>contributor "Paul Bachmann"\<close>
 section \<open>Higher-Order Pattern Unification Tests\<close>
 theory Higher_Order_Pattern_Unification_Tests
-imports
-  Unification_Tests_Base
+  imports
+    Logging.ML_Attributes
+    Unification_Tests_Base
 begin
 paragraph \<open>Summary\<close>
 text \<open>Tests for @{ML_structure "Higher_Order_Pattern_Unification"}.\<close>
@@ -16,15 +17,13 @@ ML\<open>
   val match = Unif.match
   val unify_hints = Unif.unify_hints
   val unify = Unif.unify
+  val d = Logging_Antiquotations.show_pos
 \<close>
 
-(* config[First_Order_Unification.Logger.log_level=1000]
-config[Higher_Order_Pattern_Unification.Logger.log_level=1000]
-config[Unification_Hints.Logger.log_level=1000]
-config[Root_Logger.log_level=1000]
-config[show_types=true]
-config[eta_contract=false]
-config[Logging_Antiquotations.show_pos=true] *)
+(* declare[[ML_dattr "fn _ => Logger.set_log_levels Unification_Base.logger Logger.ALL"]]
+declare[[show_types=true]]
+declare[[eta_contract=false]]
+declare[[ML_dattr "fn _ => Config.put_generic Logging_Antiquotations.show_pos true"]] *)
 
 subsection \<open>Matching\<close>
 subsubsection \<open>Unit Tests\<close>

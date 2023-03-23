@@ -5,7 +5,8 @@ Resolution with parametrised unification function.
 *)
 signature UNIFY_RESOLVE =
 sig
-  structure Logger : LOGGER
+  include HAS_LOGGER
+
   val CONCAT : tactic list -> tactic
   val CONCAT' : (int -> tactic) list -> int -> tactic
 
@@ -27,7 +28,7 @@ end
 structure Unify_Resolve : UNIFY_RESOLVE =
 struct
 
-structure Logger = @{new_logger "unify_resolve"}
+val logger = Logger.setup_new_logger Unification_Base.logger "Unify_Resolve"
 
 structure Util = Unification_Util
 
